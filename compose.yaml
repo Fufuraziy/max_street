@@ -1,0 +1,72 @@
+# MAX Стрит: запуск одной командой `docker compose up --build -d`.
+# Значения берутся из файла .env (если он есть), иначе используются безопасные локальные значения по умолчанию.
+# Реальные токены и пароли в репозиторий не коммитятся — см. .env.example.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-maxstreet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-maxstreet_local}
+      POSTGRES_DB: ${POSTGRES_DB:-maxstreet}
+      TZ: ${APP_TIMEZONE:-Europe/Moscow}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-maxstreet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-maxstreet_local}
+      POSTGRES_DB: ${POSTGRES_DB:-maxstreet}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
+      MAX_API_BASE_URL: ${MAX_API_BASE_URL:-https://platform-api2.max.ru}
+      MAX_BOT_MODE: ${MAX_BOT_MODE:-auto}
+      MAX_WEBHOOK_URL: ${MAX_WEBHOOK_URL:-}
+      MAX_WEBHOOK_SECRET: ${MAX_WEBHOOK_SECRET:-}
+      MAX_USE_OPEN_APP_BUTTON: ${MAX_USE_OPEN_APP_BUTTON:-true}
+      MINIAPP_URL: ${MINIAPP_URL:-http://localhost:3000}
+      REQUIRE_INIT_DATA: ${REQUIRE_INIT_DATA:-false}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:

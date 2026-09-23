@@ -1,0 +1,16 @@
+# Контексты сборки — ./backend и ./frontend, у каждого свой .dockerignore.
+# Этот файл действует, если образ собирается из корня репозитория.
+.git/
+.env
+.env.*
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/node_modules/
+**/dist/
+**/.vite/
+*.log
+.idea/
+.vscode/
+.claude/

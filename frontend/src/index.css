@@ -1,0 +1,257 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  @apply bg-[#F2F3F7] font-sans text-slate-900 antialiased dark:bg-[#0F1115] dark:text-slate-100;
+}
+
+#root {
+  height: 100vh;
+  height: 100dvh;
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/90 backdrop-blur-md dark:bg-[#1C1E24]/90;
+  }
+
+  .btn {
+    @apply inline-flex min-h-[48px] select-none items-center justify-center gap-2 rounded-2xl px-4 text-[15px] font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-white shadow-sm hover:bg-accent-dark;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white text-slate-900 hover:bg-slate-50 dark:bg-white/10 dark:text-slate-100 dark:hover:bg-white/15;
+  }
+
+  .chip {
+    @apply inline-flex min-h-[40px] shrink-0 select-none items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-medium transition active:scale-95;
+  }
+
+  .chip-idle {
+    @apply chip bg-white text-slate-700 shadow-sm dark:bg-[#1C1E24] dark:text-slate-200;
+  }
+
+  .input {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/20 dark:border-white/10 dark:bg-white/5 dark:text-slate-100;
+  }
+
+  .field-label {
+    @apply mb-2 block text-sm font-semibold text-slate-600 dark:text-slate-300;
+  }
+
+  .card {
+    @apply rounded-2xl bg-white p-4 dark:bg-[#1C1E24];
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .scroll-area {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 12px);
+  }
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 16px);
+  }
+}
+
+/* ---------- Leaflet ---------- */
+.leaflet-container {
+  font-family: inherit;
+  background: #e8e6e1;
+}
+
+.leaflet-control-attribution {
+  font-size: 10px;
+  border-radius: 8px 0 0 0;
+}
+
+.leaflet-control-zoom {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .leaflet-control-zoom {
+    display: block;
+    border: none !important;
+    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.16) !important;
+  }
+  .leaflet-control-zoom a {
+    width: 40px !important;
+    height: 40px !important;
+    line-height: 40px !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .leaflet-container {
+    background: #1b1d22;
+  }
+  .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.55);
+  }
+  .leaflet-control-attribution {
+    background: rgba(28, 30, 36, 0.8) !important;
+    color: #9ca3af;
+  }
+  .leaflet-control-attribution a {
+    color: #93c5fd;
+  }
+  .leaflet-control-zoom a {
+    background: #1c1e24 !important;
+    color: #e5e7eb !important;
+    border-color: #2a2d35 !important;
+  }
+}
+
+/* ---------- Маркеры площадок ---------- */
+.court-pin-wrapper {
+  background: transparent;
+  border: none;
+}
+
+.court-pin {
+  position: relative;
+  width: 44px;
+  height: 52px;
+  transform-origin: 50% 100%;
+  transition: transform 0.18s ease;
+  cursor: pointer;
+}
+
+.court-pin:hover {
+  transform: scale(1.08);
+}
+
+.court-pin__body {
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--pin);
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.court-pin__emoji {
+  transform: rotate(45deg);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.court-pin__badge {
+  position: absolute;
+  top: -5px;
+  right: -3px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+}
+
+.court-pin__extra {
+  position: absolute;
+  top: 26px;
+  left: -8px;
+  padding: 0 4px;
+  height: 16px;
+  border-radius: 8px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  border: 1.5px solid #fff;
+}
+
+.court-pin.is-selected {
+  transform: scale(1.25);
+}
+
+.court-pin.is-selected .court-pin__body {
+  box-shadow:
+    0 0 0 6px var(--pin-ring),
+    0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- Геопозиция пользователя ---------- */
+.user-dot-wrapper {
+  background: transparent;
+  border: none;
+}
+
+.user-dot {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+
+.user-dot span,
+.user-dot::after {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: #2d6bff;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(45, 107, 255, 0.6);
+  content: '';
+}
+
+.user-dot::after {
+  inset: 0;
+  border: none;
+  background: rgba(45, 107, 255, 0.35);
+  animation: user-pulse 2s ease-out infinite;
+  z-index: -1;
+}
+
+@keyframes user-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}

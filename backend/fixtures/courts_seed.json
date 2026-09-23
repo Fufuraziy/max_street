@@ -1,0 +1,338 @@
+{
+  "meta": {
+    "city": "Санкт-Петербург",
+    "source": "Координаты, виды спорта, покрытие и освещение взяты из OpenStreetMap (© участники OpenStreetMap, лицензия ODbL). Названия, описания и рейтинги — демонстрационные.",
+    "generated_at": "2026-09-23"
+  },
+  "courts": [
+    {
+      "title": "Спортгородок «Литейный»",
+      "sport_types": ["basketball", "volleyball", "workout"],
+      "address": "ул. Жуковского, детский городок «Литейный», Центральный р-н",
+      "latitude": 59.934150,
+      "longitude": 30.357138,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.7,
+      "description": "Огороженный спортгородок в центре: баскетбольная и волейбольная площадки на резиновом покрытии, рядом турники и брусья. Вечером включают освещение, так что можно играть после работы.",
+      "osm_ref": "way/160747876"
+    },
+    {
+      "title": "Баскетбольная площадка на Большой Конюшенной",
+      "sport_types": ["basketball"],
+      "address": "Большая Конюшенная ул., Центральный р-н",
+      "latitude": 59.937235,
+      "longitude": 30.324071,
+      "surface_type": "asphalt",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.5,
+      "description": "Компактный хард-корт в двух шагах от Невского проспекта. Твёрдое покрытие и вечернее освещение, хорошо подходит для 1×1 и 3×3.",
+      "osm_ref": "way/102277787"
+    },
+    {
+      "title": "Спортплощадка на Кирочной",
+      "sport_types": ["football", "basketball"],
+      "address": "Кирочная ул., Центральный р-н",
+      "latitude": 59.940852,
+      "longitude": 30.382696,
+      "surface_type": "artificial_turf",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.4,
+      "description": "Поле с искусственным газоном и баскетбольными кольцами недалеко от Таврического сада. Освещение работает до позднего вечера. По выходным желающих много, поэтому сбор лучше создавать заранее.",
+      "osm_ref": "way/293899896"
+    },
+    {
+      "title": "Спортплощадка в Никольском саду",
+      "sport_types": ["basketball", "workout"],
+      "address": "Никольская пл., Никольский сад, Адмиралтейский р-н",
+      "latitude": 59.922964,
+      "longitude": 30.300979,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.3,
+      "description": "Спортивная зона в Никольском саду рядом с Никольским собором: баскетбольное кольцо и гимнастический городок на резиновом покрытии. Тихое место в Коломне.",
+      "osm_ref": "way/123951935"
+    },
+    {
+      "title": "Воркаут в парке Екатерингоф",
+      "sport_types": ["workout"],
+      "address": "Лифляндская ул., парк Екатерингоф, Адмиралтейский р-н",
+      "latitude": 59.902909,
+      "longitude": 30.260301,
+      "surface_type": "rubber",
+      "has_lighting": false,
+      "is_indoor": false,
+      "rating": 4.6,
+      "description": "Воркаут-зона в историческом парке Екатерингоф: турники, брусья, шведские стенки. Вокруг прудов идут беговые дорожки, так что тренировку удобно совместить с пробежкой.",
+      "osm_ref": "way/97038672"
+    },
+    {
+      "title": "Сквер Динары Асановой",
+      "sport_types": ["football", "basketball"],
+      "address": "Ординарная ул., сквер Динары Асановой, Петроградский р-н",
+      "latitude": 59.964323,
+      "longitude": 30.311499,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.2,
+      "description": "Мини-футбольное поле с баскетбольными кольцами в тихом сквере на Петроградской стороне. Резиновое покрытие.",
+      "osm_ref": "way/1102363061"
+    },
+    {
+      "title": "Баскетбольные площадки на Петрозаводской",
+      "sport_types": ["basketball"],
+      "address": "Петрозаводская ул., Петроградский р-н",
+      "latitude": 59.962846,
+      "longitude": 30.292342,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.8,
+      "description": "Две баскетбольные площадки рядом друг с другом, можно вести две игры 3×3 одновременно. Резиновое покрытие и освещение, по вечерам приходит сильная компания.",
+      "osm_ref": "way/265672233"
+    },
+    {
+      "title": "Кроссфит-площадка ЦПКиО им. Кирова",
+      "sport_types": ["workout"],
+      "address": "Елагин остров, ЦПКиО им. С. М. Кирова, Петроградский р-н",
+      "latitude": 59.981795,
+      "longitude": 30.264206,
+      "surface_type": "rubber",
+      "has_lighting": false,
+      "is_indoor": false,
+      "rating": 4.7,
+      "description": "Площадка для функционального тренинга на Елагином острове: рамы, турники и место для групповых тренировок. Открыта, пока работает парк.",
+      "osm_ref": "way/1283399405"
+    },
+    {
+      "title": "Мультиспорт-площадка на Флагманской",
+      "sport_types": ["basketball", "volleyball", "table_tennis"],
+      "address": "Флагманская ул., остров Декабристов, Василеостровский р-н",
+      "latitude": 59.952470,
+      "longitude": 30.212902,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.5,
+      "description": "Универсальная площадка у Финского залива: баскетбол, волейбольная сетка и теннисные столы. Резиновое покрытие, есть освещение. С залива часто дует, пригодится ветровка.",
+      "osm_ref": "way/530407520"
+    },
+    {
+      "title": "Площадка на набережной Макарова",
+      "sport_types": ["basketball"],
+      "address": "наб. Макарова, Василеостровский р-н",
+      "latitude": 59.958969,
+      "longitude": 30.236028,
+      "surface_type": "asphalt",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 3.9,
+      "description": "Асфальтовая баскетбольная площадка у Малой Невы. Классический стритбол: твёрдое покрытие и освещение.",
+      "osm_ref": "way/1307756794"
+    },
+    {
+      "title": "Шуваловский сквер",
+      "sport_types": ["basketball", "workout"],
+      "address": "Шуваловский пр., Шуваловский сквер, Приморский р-н",
+      "latitude": 60.007832,
+      "longitude": 30.198710,
+      "surface_type": "rubber",
+      "has_lighting": false,
+      "is_indoor": false,
+      "rating": 4.1,
+      "description": "Площадка в сквере на Шуваловском проспекте: баскетбольная зона с резиновым покрытием и уличные тренажёры. Освещения нет, играть лучше засветло.",
+      "osm_ref": "way/1349204199"
+    },
+    {
+      "title": "Теннисные столы на Дрезденской",
+      "sport_types": ["table_tennis"],
+      "address": "Дрезденская ул., Выборгский р-н",
+      "latitude": 60.014722,
+      "longitude": 30.329356,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.3,
+      "description": "Всепогодные уличные теннисные столы на резиновом покрытии, вечером есть освещение. Ракетки и мячи приносите свои.",
+      "osm_ref": "way/124095486"
+    },
+    {
+      "title": "Площадка на улице Капитана Воронина",
+      "sport_types": ["basketball", "football", "volleyball"],
+      "address": "ул. Капитана Воронина, Выборгский р-н",
+      "latitude": 59.988415,
+      "longitude": 30.346839,
+      "surface_type": "rubber",
+      "has_lighting": false,
+      "is_indoor": false,
+      "rating": 4.0,
+      "description": "Многофункциональная площадка недалеко от метро «Лесная»: разметка для баскетбола, мини-футбола и волейбола. Резиновое покрытие, освещения нет.",
+      "osm_ref": "way/607382343"
+    },
+    {
+      "title": "Стадион на Гражданском проспекте",
+      "sport_types": ["football", "volleyball", "basketball"],
+      "address": "Гражданский пр., Калининский р-н",
+      "latitude": 60.020047,
+      "longitude": 30.399960,
+      "surface_type": "artificial_turf",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.6,
+      "description": "Большое поле с искусственным газоном, беговыми дорожками, волейбольной и баскетбольной зонами. Есть освещение, места хватит для 7×7.",
+      "osm_ref": "way/141376307"
+    },
+    {
+      "title": "Теннисные столы на улице Карпинского",
+      "sport_types": ["table_tennis"],
+      "address": "ул. Карпинского, Калининский р-н",
+      "latitude": 60.008161,
+      "longitude": 30.427773,
+      "surface_type": "asphalt",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.0,
+      "description": "Уличные теннисные столы в зелёной зоне Пискарёвки. Вечером есть освещение, рядом скамейки для тех, кто ждёт очереди.",
+      "osm_ref": "way/112781283"
+    },
+    {
+      "title": "Спортивный кластер в парке Авиаторов",
+      "sport_types": ["basketball", "volleyball", "table_tennis", "football"],
+      "address": "Кубинская ул., парк Авиаторов, Московский р-н",
+      "latitude": 59.867217,
+      "longitude": 30.298727,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.7,
+      "description": "Баскетбол, волейбол, теннисные столы и футбольное поле рядом друг с другом. Можно прийти большой компанией и разойтись по видам спорта.",
+      "osm_ref": "way/1533629018"
+    },
+    {
+      "title": "Мультиспорт на улице Гастелло",
+      "sport_types": ["basketball", "football", "table_tennis"],
+      "address": "ул. Гастелло, Московский р-н",
+      "latitude": 59.859589,
+      "longitude": 30.323376,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.4,
+      "description": "Резиновое покрытие, баскетбольные кольца, мини-футбольные ворота и теннисный стол. Вечером есть освещение.",
+      "osm_ref": "way/231099742"
+    },
+    {
+      "title": "Футбольное поле в саду «Спартак»",
+      "sport_types": ["football"],
+      "address": "пр. Обуховской Обороны, сад «Спартак», Невский р-н",
+      "latitude": 59.849511,
+      "longitude": 30.483732,
+      "surface_type": "artificial_turf",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.5,
+      "description": "Футбольное поле с искусственным газоном и освещением. Подходит для игр 5×5 и 7×7.",
+      "osm_ref": "way/551523613"
+    },
+    {
+      "title": "Площадка на проспекте Елизарова",
+      "sport_types": ["basketball"],
+      "address": "пр. Елизарова, Невский р-н",
+      "latitude": 59.894650,
+      "longitude": 30.421299,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.2,
+      "description": "Баскетбольная площадка с резиновым покрытием и освещением рядом с метро «Елизаровская».",
+      "osm_ref": "way/230676866"
+    },
+    {
+      "title": "Площадка на проспекте Стачек",
+      "sport_types": ["football", "basketball"],
+      "address": "пр. Стачек, Кировский р-н",
+      "latitude": 59.850033,
+      "longitude": 30.225654,
+      "surface_type": "rubber",
+      "has_lighting": true,
+      "is_indoor": false,
+      "rating": 4.1,
+      "description": "Мини-футбол и баскетбол на резиновом покрытии на юго-западе города. Освещение работает до позднего вечера.",
+      "osm_ref": "way/113928107"
+    }
+  ],
+  "demo_games": [
+    {
+      "court_title": "Баскетбольные площадки на Петрозаводской",
+      "sport_type": "basketball",
+      "start": {"in_minutes": 90, "latest": "23:30", "fallback": "18:30"},
+      "required_players": 6,
+      "comment": "Стритбол 3×3 до 21 очка. Не хватает одного, присоединяйся!",
+      "participants": [
+        {"user_max_id": "demo_1001", "user_name": "Артём"},
+        {"user_max_id": "demo_1002", "user_name": "Илья"},
+        {"user_max_id": "demo_1003", "user_name": "Катя"},
+        {"user_max_id": "demo_1004", "user_name": "Макс"},
+        {"user_max_id": "demo_1005", "user_name": "Денис"}
+      ]
+    },
+    {
+      "court_title": "Стадион на Гражданском проспекте",
+      "sport_type": "football",
+      "start": {"in_minutes": 240, "latest": "22:00", "fallback": "19:30"},
+      "required_players": 10,
+      "comment": "Мини-футбол 5×5, мяч есть. Нужны ещё четверо, манишки возьму.",
+      "participants": [
+        {"user_max_id": "demo_2001", "user_name": "Сергей"},
+        {"user_max_id": "demo_2002", "user_name": "Никита"},
+        {"user_max_id": "demo_2003", "user_name": "Паша"},
+        {"user_max_id": "demo_2004", "user_name": "Руслан"},
+        {"user_max_id": "demo_2005", "user_name": "Тимур"},
+        {"user_max_id": "demo_2006", "user_name": "Олег"}
+      ]
+    },
+    {
+      "court_title": "Мультиспорт-площадка на Флагманской",
+      "sport_type": "volleyball",
+      "start": {"day_offset": 1, "time": "19:00"},
+      "required_players": 8,
+      "comment": "Волейбол 4×4 для любителей, средний уровень. Мяч принесу.",
+      "participants": [
+        {"user_max_id": "demo_3001", "user_name": "Лена"},
+        {"user_max_id": "demo_3002", "user_name": "Аня"},
+        {"user_max_id": "demo_3003", "user_name": "Вова"}
+      ]
+    }
+  ],
+  "demo_defects": [
+    {
+      "court_title": "Площадка на набережной Макарова",
+      "user_max_id": "demo_4001",
+      "defect_type": "broken_ring",
+      "description": "Погнут обод кольца на одном из щитов, мяч отскакивает непредсказуемо.",
+      "status": "reported",
+      "days_ago": 2
+    },
+    {
+      "court_title": "Шуваловский сквер",
+      "user_max_id": "demo_4002",
+      "defect_type": "surface_damage",
+      "description": "У штрафной линии отслаивается резиновое покрытие, можно зацепиться ногой.",
+      "status": "sent_to_city",
+      "days_ago": 6
+    },
+    {
+      "court_title": "Футбольное поле в саду «Спартак»",
+      "user_max_id": "demo_4003",
+      "defect_type": "net_missing",
+      "description": "На одних воротах порвана сетка.",
+      "status": "resolved",
+      "days_ago": 14
+    }
+  ]
+}

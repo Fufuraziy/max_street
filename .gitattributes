@@ -1,0 +1,5 @@
+# Единые LF-переводы строк: файлы попадают в Linux-контейнеры без CRLF даже при клонировании на Windows.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
