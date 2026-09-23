@@ -85,3 +85,36 @@ export function hexToRgba(hex: string, alpha: number): string {
 export function routeUrl(lat: number, lon: number): string {
   return `https://yandex.ru/maps/?rtext=~${lat.toFixed(6)},${lon.toFixed(6)}&rtt=pd`;
 }
+
+const rubFormatter = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+
+/** 1800 → «1 800 ₽», 583.33 → «583,33 ₽». */
+export function formatRub(amount: number): string {
+  return `${rubFormatter.format(amount)} ₽`;
+}
+
+/** «18:00–19:30» */
+export function formatTimeRange(startIso: string, endIso: string): string {
+  return `${formatTime(new Date(startIso))}–${formatTime(new Date(endIso))}`;
+}
+
+/** Дата сбора с диапазоном слота, если он есть: «Завтра, 18:00–19:30». */
+export function formatGameWhen(startIso: string, endIso?: string | null): string {
+  const start = new Date(startIso);
+  return endIso ? `${dayLabel(start)}, ${formatTimeRange(startIso, endIso)}` : `${dayLabel(start)}, ${formatTime(start)}`;
+}
+
+/** Локальная дата в формате YYYY-MM-DD для запроса расписания. */
+export function dateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+export function percentOf(part: number, total: number): number {
+  return total > 0 ? Math.min(100, Math.floor((part / total) * 100)) : 0;
+}
+
+/** Сколько должен внести участник: доля, а последний плательщик — точный остаток (как на сервере). */
+export function amountDue(total: number, collected: number, share: number, paidCount: number, required: number): number {
+  const remaining = Math.round((total - collected) * 100) / 100;
+  return paidCount >= required - 1 ? remaining : Math.min(share, remaining);
+}

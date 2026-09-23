@@ -9,6 +9,7 @@ import FiltersBar from './components/FiltersBar';
 import MapView from './components/MapView';
 import MyGamesSheet from './components/MyGamesSheet';
 import NamePromptModal from './components/NamePromptModal';
+import PayModal from './components/PayModal';
 import PickLocationOverlay from './components/PickLocationOverlay';
 import ReportDefectModal from './components/ReportDefectModal';
 import { Spinner, Toast, type ToastState } from './components/ui';
@@ -22,17 +23,36 @@ import {
   shareLink,
   useBackButton,
 } from './lib/max';
-import type { BotInfo, Court, CourtDetail, GameWithCourt, Identity, SportType } from './types';
+import type { BotInfo, Court, CourtDetail, Game, GameWithCourt, Identity, PayResponse, SportType } from './types';
 
 type ModalKind = 'create-game' | 'report-defect' | 'add-court' | 'my-games' | null;
 type IdentityAction = (identity: Identity) => void;
 
 const COURTS_REFRESH_MS = 60_000;
 
+/**
+ * Перемещение карты без падений: Leaflet flyTo на контейнере нулевого размера
+ * (скрытая вкладка, ещё не отрисованный WebView) вычисляет NaN, поэтому там — setView без анимации.
+ */
+function moveMap(map: L.Map, center: L.LatLngExpression, zoom: number): void {
+  const size = map.getSize();
+  try {
+    if (size.x > 0 && size.y > 0) {
+      map.flyTo(center, zoom, { duration: 0.6 });
+      return;
+    }
+  } catch {
+    /* падаем на setView ниже */
+  }
+  map.setView(center, zoom, { animate: false });
+}
+
 export default function App() {
   const [identity, setIdentity] = useState<Identity>(getIdentity);
   const [sport, setSport] = useState<SportType | null>(null);
   const [onlyWithGames, setOnlyWithGames] = useState(false);
+  const [onlyRental, setOnlyRental] = useState(false);
+  const [payTarget, setPayTarget] = useState<{ game: Game; courtTitle: string } | null>(null);
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -158,11 +178,16 @@ export default function App() {
   const focusPoint = useCallback(
     (lat: number, lng: number) => {
       if (!map) return;
-      const zoom = Math.max(map.getZoom(), 15);
+      const zoom = Math.max(map.getZoom() || 12, 15);
+      const size = map.getSize();
+      if (size.x === 0 || size.y === 0) {
+        moveMap(map, [lat, lng], zoom);
+        return;
+      }
       const desktop = window.matchMedia('(min-width: 768px)').matches;
-      const offset = desktop ? L.point(-218, 0) : L.point(0, map.getSize().y * 0.26);
+      const offset = desktop ? L.point(-218, 0) : L.point(0, size.y * 0.26);
       const center = map.unproject(map.project([lat, lng], zoom).add(offset), zoom);
-      map.flyTo(center, zoom, { duration: 0.6 });
+      moveMap(map, center, zoom);
     },
     [map],
   );
@@ -188,7 +213,12 @@ export default function App() {
       return;
     }
     const bounds = L.latLngBounds(courts.map((court) => [court.latitude, court.longitude] as [number, number]));
-    map.fitBounds(bounds, { paddingTopLeft: [24, 140], paddingBottomRight: [24, 32], maxZoom: 14 });
+    const size = map.getSize();
+    if (size.x > 0 && size.y > 0) {
+      map.fitBounds(bounds, { paddingTopLeft: [24, 140], paddingBottomRight: [24, 32], maxZoom: 14 });
+    } else {
+      map.setView(bounds.getCenter(), 11, { animate: false });
+    }
   }, [map, courts, selectCourt]);
 
   const handleMapClick = useCallback(() => {
@@ -205,7 +235,7 @@ export default function App() {
       (position) => {
         const point: [number, number] = [position.coords.latitude, position.coords.longitude];
         setUserLocation(point);
-        map?.flyTo(point, Math.max(map.getZoom(), 14), { duration: 0.8 });
+        if (map) moveMap(map, point, Math.max(map.getZoom() || 12, 14));
         setLocating(false);
       },
       () => {
@@ -294,11 +324,37 @@ export default function App() {
     [identity, notify, refreshAll],
   );
 
-  const handleGameCreated = useCallback(() => {
-    setModal(null);
-    notify('Сбор создан! Бот сообщит, когда команда соберётся', 'success');
-    void refreshAll();
-  }, [notify, refreshAll]);
+  const handleGameCreated = useCallback(
+    (game: GameWithCourt) => {
+      setModal(null);
+      if (game.is_paid) {
+        // Платный сбор: организатор сразу вносит свою долю на эскроу-счёт.
+        notify(`Сбор создан, слот зарезервирован. Эскроу-счёт #${game.escrow_account_id}`, 'success');
+        setPayTarget({ game, courtTitle: game.court.title });
+      } else {
+        notify('Сбор создан! Бот сообщит, когда команда соберётся', 'success');
+      }
+      void refreshAll();
+    },
+    [notify, refreshAll],
+  );
+
+  const openPay = useCallback(
+    (game: Game, courtTitle: string) => withIdentity(() => setPayTarget({ game, courtTitle })),
+    [withIdentity],
+  );
+
+  const handlePaid = useCallback(
+    (result: PayResponse) => {
+      if (result.booked) {
+        notify(`🎉 Корт забронирован! Номер брони #${result.booking_reference}`, 'success');
+      } else {
+        notify(result.message, 'success');
+      }
+      void refreshAll();
+    },
+    [notify, refreshAll],
+  );
 
   const handleDefectReported = useCallback(() => {
     void refreshAll();
@@ -334,20 +390,24 @@ export default function App() {
 
   // --- «Назад» (кнопка MAX и Escape) -----------------------------------------------------
 
-  const backVisible = modal !== null || pendingAction !== null || pickMode || selectedId !== null;
+  const backVisible = modal !== null || pendingAction !== null || payTarget !== null || pickMode || selectedId !== null;
   const handleBack = useCallback(() => {
     if (pendingAction) setPendingAction(null);
+    else if (payTarget) setPayTarget(null);
     else if (modal) setModal(null);
     else if (pickMode) setPickMode(false);
     else setSelectedId(null);
-  }, [pendingAction, modal, pickMode]);
+  }, [pendingAction, payTarget, modal, pickMode]);
   useBackButton(backVisible, handleBack);
 
   // --- Отрисовка -----------------------------------------------------------------------
 
   const visibleCourts = useMemo(
-    () => (onlyWithGames ? courts.filter((court) => court.active_games_today > 0) : courts),
-    [courts, onlyWithGames],
+    () =>
+      courts.filter(
+        (court) => (!onlyWithGames || court.active_games_today > 0) && (!onlyRental || court.is_commercial),
+      ),
+    [courts, onlyWithGames, onlyRental],
   );
   const gamesToday = useMemo(() => courts.reduce((sum, court) => sum + court.active_games_today, 0), [courts]);
   const selectedCourt: Court | null =
@@ -403,6 +463,8 @@ export default function App() {
           onSportChange={setSport}
           onlyWithGames={onlyWithGames}
           onOnlyWithGamesChange={setOnlyWithGames}
+          onlyRental={onlyRental}
+          onOnlyRentalChange={setOnlyRental}
         />
       </div>
 
@@ -476,6 +538,7 @@ export default function App() {
           onReportDefect={() => setModal('report-defect')}
           onJoin={joinGame}
           onLeave={(gameId) => void leaveGame(gameId)}
+          onPay={(game) => openPay(game, selectedCourt.title)}
           onRoute={() => openExternalLink(routeUrl(selectedCourt.latitude, selectedCourt.longitude))}
           onShare={() => void shareCourt(selectedCourt)}
         />
@@ -511,6 +574,17 @@ export default function App() {
           onClose={() => setModal(null)}
           onOpenCourt={openCourtFromGame}
           onLeave={(gameId) => void leaveGame(gameId)}
+          onPay={openPay}
+        />
+      )}
+      {payTarget && (
+        <PayModal
+          key={payTarget.game.id}
+          game={payTarget.game}
+          courtTitle={payTarget.courtTitle}
+          identity={identity}
+          onClose={() => setPayTarget(null)}
+          onPaid={handlePaid}
         />
       )}
       {pendingAction && <NamePromptModal onClose={() => setPendingAction(null)} onSubmit={submitName} />}

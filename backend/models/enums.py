@@ -11,19 +11,43 @@ class SportType(StrEnum):
     VOLLEYBALL = "volleyball"
     TABLE_TENNIS = "table_tennis"
     WORKOUT = "workout"
+    TENNIS = "tennis"
+    PADEL = "padel"
 
 
 class SurfaceType(StrEnum):
     RUBBER = "rubber"
     ASPHALT = "asphalt"
     ARTIFICIAL_TURF = "artificial_turf"
+    HARD = "hard"
+    PARQUET = "parquet"
 
 
 class GameStatus(StrEnum):
     RECRUITING = "recruiting"
     CONFIRMED = "confirmed"
+    BOOKED = "booked"
     FINISHED = "finished"
     CANCELLED = "cancelled"
+
+
+class PaymentStatus(StrEnum):
+    PENDING = "pending"
+    FUNDED = "funded"
+    PAID_TO_COURT = "paid_to_court"
+    REFUNDED = "refunded"
+
+
+class EscrowTxKind(StrEnum):
+    DEPOSIT = "deposit"
+    PAYOUT = "payout"
+    REFUND = "refund"
+
+
+class SlotStatus(StrEnum):
+    FREE = "free"
+    RESERVED = "reserved"
+    BOOKED = "booked"
 
 
 class DefectType(StrEnum):
@@ -40,7 +64,12 @@ class DefectStatus(StrEnum):
     RESOLVED = "resolved"
 
 
-ACTIVE_GAME_STATUSES: tuple[str, ...] = (GameStatus.RECRUITING.value, GameStatus.CONFIRMED.value)
+# Сбор считается активным (виден на карте, в него можно вступать или он ещё не сыгран).
+ACTIVE_GAME_STATUSES: tuple[str, ...] = (
+    GameStatus.RECRUITING.value,
+    GameStatus.CONFIRMED.value,
+    GameStatus.BOOKED.value,
+)
 
 SPORT_LABELS: dict[str, str] = {
     SportType.BASKETBALL: "Баскетбол",
@@ -48,6 +77,8 @@ SPORT_LABELS: dict[str, str] = {
     SportType.VOLLEYBALL: "Волейбол",
     SportType.TABLE_TENNIS: "Настольный теннис",
     SportType.WORKOUT: "Воркаут",
+    SportType.TENNIS: "Теннис",
+    SportType.PADEL: "Падел",
 }
 
 SPORT_EMOJI: dict[str, str] = {
@@ -56,14 +87,19 @@ SPORT_EMOJI: dict[str, str] = {
     SportType.VOLLEYBALL: "🏐",
     SportType.TABLE_TENNIS: "🏓",
     SportType.WORKOUT: "💪",
+    SportType.TENNIS: "🎾",
+    SportType.PADEL: "🥎",
 }
 
 # Ключевые слова для распознавания вида спорта в свободном тексте боту.
+# Порядок важен: «настольный теннис» проверяется раньше «тенниса».
 SPORT_KEYWORDS: dict[str, tuple[str, ...]] = {
     SportType.BASKETBALL: ("баскет", "стритбол", "basket", "3х3", "3x3"),
     SportType.FOOTBALL: ("футбол", "футик", "football", "soccer", "мини-футбол"),
     SportType.VOLLEYBALL: ("волейбол", "волик", "volley"),
-    SportType.TABLE_TENNIS: ("теннис", "пинг", "tennis", "ping"),
+    SportType.TABLE_TENNIS: ("настольн", "пинг", "ping", "table tennis"),
+    SportType.PADEL: ("падел", "падл", "padel"),
+    SportType.TENNIS: ("теннис", "tennis", "корт"),
     SportType.WORKOUT: ("воркаут", "турник", "workout", "брусья", "кроссфит"),
 }
 
@@ -71,13 +107,23 @@ SURFACE_LABELS: dict[str, str] = {
     SurfaceType.RUBBER: "резиновое",
     SurfaceType.ASPHALT: "асфальт",
     SurfaceType.ARTIFICIAL_TURF: "искусственный газон",
+    SurfaceType.HARD: "хард",
+    SurfaceType.PARQUET: "паркет",
 }
 
 GAME_STATUS_LABELS: dict[str, str] = {
     GameStatus.RECRUITING: "Идёт набор",
     GameStatus.CONFIRMED: "Состав собран",
+    GameStatus.BOOKED: "Корт забронирован",
     GameStatus.FINISHED: "Завершён",
     GameStatus.CANCELLED: "Отменён",
+}
+
+PAYMENT_STATUS_LABELS: dict[str, str] = {
+    PaymentStatus.PENDING: "Идёт сбор средств",
+    PaymentStatus.FUNDED: "Сумма собрана",
+    PaymentStatus.PAID_TO_COURT: "Оплачено арендодателю",
+    PaymentStatus.REFUNDED: "Средства возвращены",
 }
 
 DEFECT_LABELS: dict[str, str] = {

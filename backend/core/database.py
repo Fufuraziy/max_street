@@ -48,6 +48,8 @@ async def wait_for_db(attempts: int = 30, delay: float = 2.0) -> None:
 
 async def create_tables() -> None:
     import models  # noqa: F401 - регистрируем модели в metadata
+    from core.migrations import upgrade_schema
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await upgrade_schema(engine)

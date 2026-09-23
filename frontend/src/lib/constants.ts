@@ -1,4 +1,4 @@
-import type { DefectStatus, DefectType, GameStatus, SportType, SurfaceType } from '../types';
+import type { DefectStatus, DefectType, GameStatus, PaymentStatus, SportType, SurfaceType } from '../types';
 
 export interface SportFormat {
   label: string;
@@ -53,9 +53,31 @@ export const SPORTS: Record<SportType, SportMeta> = {
     ],
     defaultPlayers: 8,
   },
+  tennis: {
+    label: 'Теннис',
+    short: 'Теннис',
+    emoji: '🎾',
+    color: '#65A30D',
+    formats: [
+      { label: '1×1', players: 2 },
+      { label: '2×2', players: 4 },
+    ],
+    defaultPlayers: 4,
+  },
+  padel: {
+    label: 'Падел',
+    short: 'Падел',
+    emoji: '🥎',
+    color: '#0D9488',
+    formats: [
+      { label: '2×2', players: 4 },
+      { label: '1×1', players: 2 },
+    ],
+    defaultPlayers: 4,
+  },
   table_tennis: {
     label: 'Настольный теннис',
-    short: 'Теннис',
+    short: 'Пинг-понг',
     emoji: '🏓',
     color: '#E11D48',
     formats: [
@@ -80,14 +102,25 @@ export const SPORTS: Record<SportType, SportMeta> = {
   },
 };
 
-export const SPORT_ORDER: SportType[] = ['basketball', 'football', 'volleyball', 'table_tennis', 'workout'];
+export const SPORT_ORDER: SportType[] = [
+  'basketball',
+  'football',
+  'volleyball',
+  'tennis',
+  'padel',
+  'table_tennis',
+  'workout',
+];
 
 export const SURFACES: Record<SurfaceType, string> = {
   rubber: 'Резиновое',
   asphalt: 'Асфальт',
   artificial_turf: 'Искусственный газон',
+  hard: 'Хард',
+  parquet: 'Паркет',
 };
 
+// Покрытия, которые можно выбрать при добавлении дворовой площадки.
 export const SURFACE_ORDER: SurfaceType[] = ['rubber', 'asphalt', 'artificial_turf'];
 
 export const DEFECTS: { type: DefectType; label: string; hint: string; emoji: string }[] = [
@@ -107,8 +140,16 @@ export const DEFECT_STATUS_STYLES: Record<DefectStatus, string> = {
 export const GAME_STATUS_STYLES: Record<GameStatus, string> = {
   recruiting: 'bg-accent-soft text-accent dark:bg-accent/20 dark:text-blue-300',
   confirmed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300',
+  booked: 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-white',
   finished: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
   cancelled: 'bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-300',
+};
+
+export const PAYMENT_STATUS_STYLES: Record<PaymentStatus, string> = {
+  pending: 'bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300',
+  funded: 'bg-sky-100 text-sky-800 dark:bg-sky-400/15 dark:text-sky-300',
+  paid_to_court: 'bg-emerald-600 text-white dark:bg-emerald-500',
+  refunded: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
 };
 
 export const SPB_CENTER: [number, number] = [59.9386, 30.3141];

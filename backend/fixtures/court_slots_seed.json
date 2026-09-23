@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "description": "Расписание mock-арендодателя для коммерческих кортов. Сидер разворачивает шаблон на ближайшие SLOTS_SEED_DAYS дней (по умолчанию 5) начиная с сегодняшнего; время задано в APP_TIMEZONE.",
+    "pricing": "Цены за слот в рублях, ориентир — аренда кортов в Санкт-Петербурге в 2026 году. В выходные действует повышающий коэффициент weekend_multiplier (с округлением до 100 ₽).",
+    "booked_share": "Доля слотов, которые «уже заняты» у арендодателя (детерминированно, чтобы расписание выглядело реалистично)."
+  },
+  "weekend_multiplier": 1.15,
+  "booked_share": 0.2,
+  "courts": [
+    {
+      "court_title": "Падел-корты на Уральской",
+      "slots": [
+        {"start": "07:30", "duration_minutes": 90, "price": 3600},
+        {"start": "10:30", "duration_minutes": 90, "price": 3600},
+        {"start": "13:30", "duration_minutes": 90, "price": 4200},
+        {"start": "17:00", "duration_minutes": 90, "price": 5400},
+        {"start": "18:30", "duration_minutes": 90, "price": 6000},
+        {"start": "20:00", "duration_minutes": 90, "price": 6000}
+      ]
+    },
+    {
+      "court_title": "Теннисные корты на Крестовском острове",
+      "slots": [
+        {"start": "08:00", "duration_minutes": 90, "price": 1500},
+        {"start": "10:00", "duration_minutes": 90, "price": 1800},
+        {"start": "13:00", "duration_minutes": 90, "price": 1800},
+        {"start": "16:30", "duration_minutes": 90, "price": 2100},
+        {"start": "18:00", "duration_minutes": 90, "price": 2400},
+        {"start": "19:30", "duration_minutes": 90, "price": 2400}
+      ]
+    },
+    {
+      "court_title": "Крытые теннисные корты на Петроградской",
+      "slots": [
+        {"start": "07:00", "duration_minutes": 90, "price": 2400},
+        {"start": "12:00", "duration_minutes": 90, "price": 2700},
+        {"start": "17:00", "duration_minutes": 90, "price": 3300},
+        {"start": "18:30", "duration_minutes": 90, "price": 3600},
+        {"start": "20:00", "duration_minutes": 90, "price": 3600}
+      ]
+    },
+    {
+      "court_title": "Футбольный манеж на улице Дыбенко",
+      "slots": [
+        {"start": "09:00", "duration_minutes": 90, "price": 4500},
+        {"start": "12:00", "duration_minutes": 90, "price": 4500},
+        {"start": "18:00", "duration_minutes": 90, "price": 7500},
+        {"start": "19:30", "duration_minutes": 90, "price": 7500},
+        {"start": "21:00", "duration_minutes": 90, "price": 6000}
+      ]
+    },
+    {
+      "court_title": "Игровой зал на улице Оптиков",
+      "slots": [
+        {"start": "10:00", "duration_minutes": 90, "price": 3000},
+        {"start": "14:00", "duration_minutes": 90, "price": 3000},
+        {"start": "18:00", "duration_minutes": 90, "price": 4500},
+        {"start": "19:30", "duration_minutes": 90, "price": 4500},
+        {"start": "21:00", "duration_minutes": 90, "price": 3600}
+      ]
+    }
+  ],
+  "demo_escrow_games": [
+    {
+      "court_title": "Теннисные корты на Крестовском острове",
+      "sport_type": "tennis",
+      "day_offset": 1,
+      "slot_start": "18:00",
+      "required_players": 4,
+      "comment": "Парный теннис 2×2, уровень NTRP 3.0–3.5. Мячи есть, нужен четвёртый!",
+      "participants": [
+        {"user_max_id": "demo_6001", "user_name": "Иван", "paid": true},
+        {"user_max_id": "demo_6002", "user_name": "Михаил", "paid": true},
+        {"user_max_id": "demo_6003", "user_name": "Алексей", "paid": true}
+      ]
+    },
+    {
+      "court_title": "Футбольный манеж на улице Дыбенко",
+      "sport_type": "football",
+      "day_offset": 1,
+      "slot_start": "19:30",
+      "required_players": 10,
+      "comment": "Мини-футбол 5×5 в манеже, играем без вратарей. Манишки двух цветов будут.",
+      "participants": [
+        {"user_max_id": "demo_7001", "user_name": "Дмитрий", "paid": true},
+        {"user_max_id": "demo_7002", "user_name": "Кирилл", "paid": true},
+        {"user_max_id": "demo_7003", "user_name": "Роман", "paid": true},
+        {"user_max_id": "demo_7004", "user_name": "Андрей", "paid": true},
+        {"user_max_id": "demo_7005", "user_name": "Степан", "paid": true},
+        {"user_max_id": "demo_7006", "user_name": "Владислав", "paid": false},
+        {"user_max_id": "demo_7007", "user_name": "Григорий", "paid": false}
+      ]
+    },
+    {
+      "court_title": "Падел-корты на Уральской",
+      "sport_type": "padel",
+      "day_offset": 2,
+      "slot_start": "20:00",
+      "required_players": 4,
+      "comment": "Падел для начинающих, объясню правила. Ищем троих.",
+      "participants": [
+        {"user_max_id": "demo_8001", "user_name": "Ольга", "paid": true}
+      ]
+    }
+  ]
+}

@@ -4,20 +4,22 @@
 Запуск (только стандартная библиотека Python 3.9+):
     python scripts/smoke_test.py                          # напрямую в backend (порт 8000)
     python scripts/smoke_test.py http://localhost:3000    # через Nginx фронтенда
-    python scripts/smoke_test.py --full                   # + заявка о поломке и новая площадка
+    python scripts/smoke_test.py --full                   # + заявка, новая площадка и выкуп корта
 
-По умолчанию тест не оставляет следов: созданный им сбор в конце отменяется.
-С флагом --full в базе остаются тестовая заявка и тестовая площадка.
+По умолчанию тест не оставляет видимых следов: созданные им сборы в конце отменяются
+(платный — через возврат средств с эскроу-счёта). С флагом --full в базе остаются тестовая
+заявка, тестовая площадка и один забронированный слот аренды.
 """
 
 from __future__ import annotations
 
 import json
 import random
+import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 ARGS = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
@@ -66,7 +68,9 @@ def main() -> None:
     print("2. Площадки")
     courts = call("GET", "/api/v1/courts")
     check(f"сид загружен: {len(courts)} площадок", len(courts) >= 20)
-    check("есть активные сборы на сегодня", sum(c["active_games_today"] for c in courts) >= 1)
+    active_games = call("GET", "/api/v1/games")
+    check(f"есть активные сборы: {len(active_games)} (сегодня: {sum(c['active_games_today'] for c in courts)})",
+          len(active_games) >= 1 and all("active_games_today" in c for c in courts))
     tennis = call("GET", "/api/v1/courts?sport_type=table_tennis")
     check("фильтр по виду спорта", tennis and all("table_tennis" in c["sport_types"] for c in tennis))
     bbox = call("GET", "/api/v1/courts?min_lat=59.9&max_lat=59.97&min_lon=30.25&max_lon=30.4")
@@ -147,7 +151,84 @@ def main() -> None:
     else:
         print("  · создание заявки и площадки пропущено (запустите с --full)")
 
-    print("5. Чат-бот (webhook)")
+    print("5. Аренда корта и безопасный сбор MAX Escrow (mock СБП / mock-арендодатель)")
+    rentals = call("GET", "/api/v1/courts?is_commercial=true")
+    check(f"коммерческие корты с ценой: {len(rentals)}", rentals and all(c["price_from"] for c in rentals))
+    call("GET", f"/api/v1/courts/{court['id']}/slots", expected=404)
+    check("у бесплатной площадки нет расписания аренды (404)", True)
+
+    def free_slot(exclude: set[int]) -> tuple[dict[str, Any], dict[str, Any]]:
+        for rental in rentals:
+            for offset in range(5):
+                day = (date.today() + timedelta(days=offset)).isoformat()
+                for slot in call("GET", f"/api/v1/courts/{rental['id']}/slots?date={day}"):
+                    if slot["is_available"] and slot["id"] not in exclude:
+                        return rental, slot
+        raise AssertionError("не найден свободный слот аренды")
+
+    rental, slot = free_slot(set())
+    check(f"расписание от mock-провайдера: {slot['start_time'][:16]} · {slot['price']} ₽", slot["duration_minutes"] > 0)
+    sport = rental["sport_types"][0]
+    call("POST", "/api/v1/games", {"court_id": rental["id"], "sport_type": sport, "start_time": slot["start_time"],
+                                   "required_players": 3, **creator}, expected=422)
+    check("для коммерческого корта слот обязателен (422)", True)
+    paid_game = call("POST", "/api/v1/games", {"court_id": rental["id"], "sport_type": sport, "slot_id": slot["id"],
+                                               "required_players": 3, **creator}, expected=201)
+    check(f"платное лобби: эскроу-счёт {paid_game['escrow_account_id']}",
+          re.fullmatch(r"ESC-\d{4}-[0-9A-F]{4}", paid_game["escrow_account_id"] or "") is not None
+          and paid_game["total_cost"] == slot["price"] and paid_game["payment_status"] == "pending")
+    day = slot["start_time"][:10]
+    slot_status = {s["id"]: s["status"] for s in call("GET", f"/api/v1/courts/{rental['id']}/slots?date={day}")}
+    check("слот временно зарезервирован за сбором", slot_status.get(slot["id"]) == "reserved")
+    call("POST", "/api/v1/games", {"court_id": rental["id"], "sport_type": sport, "slot_id": slot["id"],
+                                   "required_players": 3, "creator_max_id": f"smoke_{RUN}_9", "creator_name": "Второй"},
+         expected=409)
+    check("второй сбор на тот же слот отклонён (409)", True)
+
+    call("POST", f"/api/v1/games/{paid_game['id']}/pay", {"user_max_id": player["user_max_id"]}, expected=404)
+    check("оплатить можно только после вступления", True)
+    share = paid_game["share_amount"]
+    paid = call("POST", f"/api/v1/games/{paid_game['id']}/pay",
+                {"user_max_id": creator["creator_max_id"], "amount": share, "payment_method": "sbp_mock"})
+    check(f"взнос организатора {share} ₽ заморожен на эскроу", paid["game"]["collected_amount"] == share and not paid["booked"])
+    call("POST", f"/api/v1/games/{paid_game['id']}/join", player)
+    call("POST", f"/api/v1/games/{paid_game['id']}/pay", {"user_max_id": player["user_max_id"], "amount": 1}, expected=422)
+    check("неверная сумма доли отклонена (422)", True)
+    paid = call("POST", f"/api/v1/games/{paid_game['id']}/pay", {"user_max_id": player["user_max_id"]})
+    check("кворум не набран — сбор средств продолжается", paid["game"]["payment_status"] == "pending"
+          and paid["game"]["paid_count"] == 2)
+    expired = call("POST", f"/api/v1/mock/escrow/{paid_game['id']}/expire")
+    check("дедлайн: средства возвращены, лобби отменено",
+          expired["game"]["payment_status"] == "refunded" and expired["game"]["status"] == "cancelled"
+          and len(expired["refunds"]) == 2)
+    statement = call("GET", f"/api/v1/games/{paid_game['id']}/escrow")
+    kinds = [tx["kind"] for tx in statement["transactions"]]
+    check("выписка эскроу: 2 взноса, 2 возврата, баланс 0",
+          kinds.count("deposit") == 2 and kinds.count("refund") == 2 and statement["balance"] == 0)
+    slot_status = {s["id"]: s["status"] for s in call("GET", f"/api/v1/courts/{rental['id']}/slots?date={day}")}
+    check("слот снова свободен", slot_status.get(slot["id"]) == "free")
+
+    if FULL:
+        rental, slot = free_slot({slot["id"]})
+        duo = call("POST", "/api/v1/games", {"court_id": rental["id"], "sport_type": rental["sport_types"][0],
+                                             "slot_id": slot["id"], "required_players": 2, **creator}, expected=201)
+        call("POST", f"/api/v1/games/{duo['id']}/pay", {"user_max_id": creator["creator_max_id"]})
+        call("POST", f"/api/v1/games/{duo['id']}/join", player)
+        done = call("POST", f"/api/v1/games/{duo['id']}/pay", {"user_max_id": player["user_max_id"]})
+        check(f"100% собрано → корт выкуплен, бронь #{done['booking_reference']}",
+              done["booked"] and done["game"]["status"] == "booked" and done["game"]["payment_status"] == "paid_to_court"
+              and (done["booking_reference"] or "").startswith("MAX-SPORT-"))
+        statement = call("GET", f"/api/v1/games/{duo['id']}/escrow")
+        check("выписка: выплата арендодателю, баланс 0",
+              [tx["kind"] for tx in statement["transactions"]].count("payout") == 1 and statement["balance"] == 0)
+        received = call("GET", "/api/v1/mock/provider/bookings")["bookings"]
+        check("mock-арендодатель получил вебхук брони", any(b["booking_reference"] == done["booking_reference"] for b in received))
+        call("POST", f"/api/v1/games/{duo['id']}/leave", player, expected=409)
+        check("из оплаченного сбора выйти нельзя (409)", True)
+    else:
+        print("  · полный выкуп корта пропущен (запустите с --full)")
+
+    print("6. Чат-бот (webhook)")
     user = {"user_id": 7000000 + RUN, "first_name": "Смоук", "name": "Смоук", "is_bot": False}
 
     def update_for(text: str, attachments: list[dict[str, Any]] | None = None) -> dict[str, Any]:

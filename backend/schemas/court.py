@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from models.enums import SportType, SurfaceType
+from schemas.common import Money
 from schemas.defect import DefectRead
 from schemas.game import GameRead
 
@@ -66,9 +67,11 @@ class CourtRead(BaseModel):
     surface_type: str
     has_lighting: bool
     is_indoor: bool
+    is_commercial: bool = Field(default=False, description="Коммерческий корт: аренда по слотам и оплата через эскроу")
     rating: float
     description: str
     active_games_today: int = Field(default=0, description="Активные сборы на сегодня")
+    price_from: Money | None = Field(default=None, description="Минимальная цена свободного слота аренды")
 
 
 class CourtDetail(CourtRead):

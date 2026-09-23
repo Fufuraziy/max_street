@@ -27,13 +27,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import Settings, settings
 from core.database import SessionLocal
 from core.errors import DomainError
+from core.money import format_rub
 from core.security import Identity, identity_from_max_user
-from core.timeutils import human_datetime, short_datetime
+from core.timeutils import human_datetime, short_datetime, to_local
 from models import Game
 from models.enums import (
     DefectStatus,
     GAME_STATUS_LABELS,
+    PAYMENT_STATUS_LABELS,
     GameStatus,
+    PaymentStatus,
     SURFACE_LABELS,
     SportType,
     detect_sport,
@@ -41,6 +44,7 @@ from models.enums import (
     sport_label,
 )
 from services import courts as court_service
+from services import escrow
 from services import games as game_service
 
 logger = logging.getLogger(__name__)
@@ -105,6 +109,24 @@ def parse_ref(payload: str, prefix: str) -> int | None:
     """«court_12» → 12."""
     head, _, tail = payload.partition("_")
     return int(tail) if head == prefix and tail.isdigit() else None
+
+
+def time_range(game: Game) -> str:
+    """«завтра в 18:00–19:30» для слота аренды или «сегодня в 19:00» для бесплатного сбора."""
+    if game.slot is not None:
+        return f"{human_datetime(game.start_time)}–{to_local(game.slot.end_time):%H:%M}"
+    return human_datetime(game.start_time)
+
+
+def escrow_percent(game: Game) -> int:
+    return int(game.collected_amount * 100 / game.total_cost) if game.total_cost else 0
+
+
+def needs_payment(game: Game, max_user_id: str) -> bool:
+    """Участник платного сбора, который ещё не внёс долю."""
+    if not game.is_paid or game.payment_status != PaymentStatus.PENDING:
+        return False
+    return any(p.user_max_id == max_user_id and not p.has_paid for p in game.participants)
 
 
 @dataclass(slots=True)
@@ -461,7 +483,7 @@ class MaxBotService:
                 view = await self._court_view(session, int(argument))
             elif action == "join":
                 joined = await game_service.join_game(session, int(argument), identity)
-                view = self._join_result_view(joined)
+                view = self._join_result_view(joined, identity)
                 if joined.confirmed:
                     self._log_quorum(joined.game)
                 if joined.joined:
@@ -470,6 +492,12 @@ class MaxBotService:
                         if joined.confirmed
                         else self._joined_actions(joined.game, identity)
                     )
+            elif action == "pay":
+                paid = await escrow.pay_share(session, int(argument), identity, None)
+                view = self._pay_result_view(paid)
+                extra = self._payment_actions(
+                    paid.game, identity, paid.transaction.amount, paid.booked, paid.refunds, include_payer=False
+                )
             elif action == "leave":
                 left = await game_service.leave_game(session, int(argument), identity)
                 view = self._leave_result_view(left)
@@ -512,13 +540,143 @@ class MaxBotService:
         )
 
     async def notify_after_leave(self, result: game_service.LeaveResult, leaver: Identity) -> None:
-        await self.deliver_all(self._left_actions(result, leaver))
+        actions = self._left_actions(result, leaver)
+        if result.refund is not None and leaver.is_max_user:
+            actions.append(
+                self._send_to_user(
+                    leaver.max_user_id,
+                    View(f"↩️ Вы вышли из сбора. Взнос {format_rub(result.refund.amount)} возвращён с эскроу-счёта (тестовый СБП)."),
+                )
+            )
+        await self.deliver_all(actions)
+
+    async def notify_after_payment(
+        self,
+        game_id: int,
+        payer: Identity,
+        amount: Any,
+        reference: str,
+        booked: bool,
+        refunds: list[escrow.RefundItem],
+    ) -> None:
+        """Вызывается из REST API после взноса: уведомления участникам, при 100% — ваучер брони."""
+        async with SessionLocal() as session:
+            game = await game_service.get_game(session, game_id)
+        logger.info(
+            "[escrow] Взнос %s (%s) от %s в %s: собрано %s из %s",
+            format_rub(amount),
+            reference,
+            payer.name,
+            game.escrow_account_id,
+            format_rub(game.collected_amount),
+            format_rub(game.total_cost),
+        )
+        await self.deliver_all(self._payment_actions(game, payer, amount, booked, refunds, include_payer=True))
+
+    async def notify_refund(self, game_id: int, refunds: list[escrow.RefundItem], reason: str) -> None:
+        """Возврат средств (дедлайн сбора, отказ арендодателя): сообщение каждому плательщику."""
+        async with SessionLocal() as session:
+            game = await game_service.get_game(session, game_id)
+        logger.info(
+            "[escrow] Возврат по %s (%s): %s",
+            game.escrow_account_id,
+            reason,
+            ", ".join(f"{r.user_name} {format_rub(r.amount)}" for r in refunds) or "взносов не было",
+        )
+        await self.deliver_all(self._refund_actions(game, refunds, reason))
+
+    def _payment_actions(
+        self,
+        game: Game,
+        payer: Identity,
+        amount: Any,
+        booked: bool,
+        refunds: list[escrow.RefundItem],
+        *,
+        include_payer: bool,
+    ) -> list[Action]:
+        if refunds:
+            return self._refund_actions(game, refunds, "booking_failed")
+        recipients = [
+            p for p in game.participants
+            if p.user_max_id.isdigit() and (include_payer or p.user_max_id != payer.max_user_id)
+        ]
+        if booked:
+            logger.info(
+                "[escrow] Кворум и оплата 100%%: сбор #%s, бронь %s, ваучеров в MAX: %s",
+                game.id,
+                game.booking_reference,
+                len(recipients),
+            )
+            view = self._booked_view(game)
+            return [self._send_to_user(p.user_max_id, view) for p in recipients]
+
+        progress = f"Собрано {format_rub(game.collected_amount)} / {format_rub(game.total_cost)} ({escrow_percent(game)}%)."
+        others = View(
+            f"💳 Взнос в эскроу-счёт лобби: <b>{esc(payer.name)}</b> — {format_rub(amount)}. {progress}\n\n" + self._game_card(game),
+            [[self.app_button("📍 Открыть сбор", f"court_{game.court_id}")]],
+        )
+        receipt = View(
+            f"✅ Ваша доля {format_rub(amount)} зачислена на защищённый эскроу-счёт #{game.escrow_account_id}. {progress}\n"
+            "Корт будет выкуплен автоматически, когда соберётся вся сумма.\n\n" + self._game_card(game),
+            [[self.app_button("📍 Открыть сбор", f"court_{game.court_id}")]],
+        )
+        return [
+            self._send_to_user(p.user_max_id, receipt if p.user_max_id == payer.max_user_id else others)
+            for p in recipients
+        ]
+
+    def _refund_actions(self, game: Game, refunds: list[escrow.RefundItem], reason: str) -> list[Action]:
+        head = (
+            "↩️ <b>Сбор не состоялся</b>: арендодатель не подтвердил бронь."
+            if reason == "booking_failed"
+            else "↩️ <b>Сбор не состоялся</b>: к дедлайну не собрали всю сумму на корт."
+        )
+        actions = []
+        for refund in refunds:
+            if not refund.user_max_id.isdigit():
+                continue
+            view = View(
+                f"{head}\nВаш взнос {format_rub(refund.amount)} возвращён (тестовый СБП), слот освобождён.\n\n"
+                + self._game_card(game),
+                [[cb("🔥 Другие сборы", "find")], [self.app_button("🗺 Открыть карту")]],
+            )
+            actions.append(self._send_to_user(refund.user_max_id, view))
+        return actions
+
+    def _booked_view(self, game: Game) -> View:
+        start = to_local(game.start_time)
+        names = ", ".join(esc(p.user_name) for p in game.participants)
+        text = (
+            f"🎉 <b>Кворум и оплата собраны на 100%!</b> Корт на {start:%H:%M} успешно выкуплен. "
+            "Электронный ваучер отправлен участникам в MAX. До встречи на площадке!\n\n"
+            f"🎫 <b>Ваучер #{esc(game.booking_reference)}</b>\n"
+            f"{sport_emoji(game.sport_type)} {esc(sport_label(game.sport_type))} · {format_label(game.sport_type, game.required_players)}\n"
+            f"🕖 {time_range(game)}\n"
+            f"📍 {esc(game.court.title)}\n"
+            f"      {esc(game.court.address)}\n"
+            f"💳 Оплачено арендодателю: {format_rub(game.total_cost)} (MAX Escrow #{esc(game.escrow_account_id)})\n"
+            f"👥 {names}"
+        )
+        return View(
+            text,
+            [
+                [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")],
+                [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude)), cb("🙋 Мои игры", "my")],
+            ],
+        )
 
     def _confirmed_actions(self, game: Game, exclude: str | None = None) -> list[Action]:
+        if game.is_paid:
+            unpaid = sum(1 for p in game.participants if not p.has_paid)
+            tail = (
+                f"\n\n💳 Осталось внести доли: {unpaid} из {game.required_players}. "
+                "Корт выкупается автоматически, как только соберётся 100% суммы."
+            )
+        else:
+            tail = "\n\nДо встречи на площадке! Если планы изменятся, выйдите из сбора, чтобы освободить место."
         view = View(
-            "✅ <b>Состав собран!</b>\n\n"
-            + self._game_card(game)
-            + "\n\nДо встречи на площадке! Если планы изменятся, выйдите из сбора, чтобы освободить место.",
+            "✅ <b>Состав собран!</b>\n\n" + self._game_card(game) + tail,
             [
                 [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")],
                 [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude)), cb("🙋 Мои игры", "my")],
@@ -564,6 +722,7 @@ class MaxBotService:
             "<b>MAX Стрит</b> — карта дворовых спортплощадок и сборы на игры.\n\n"
             "🗺 Площадки рядом: покрытие, свет и кто сегодня играет\n"
             "👥 Сборы на 3×3, 5×5, волейбол или теннис. Когда состав соберётся, бот пришлёт уведомление\n"
+            "💳 Аренда кортов (теннис, падел, манеж) со сплитом оплаты через безопасный эскроу-счёт\n"
             "🛠 Сломано кольцо или яма в покрытии? Заявка уйдёт в районные службы\n\n"
             "/find — ближайшие сборы · /my — мои игры · /near — площадки рядом · /help — помощь"
         )
@@ -580,12 +739,14 @@ class MaxBotService:
         text = (
             "ℹ️ <b>Как пользоваться MAX Стрит</b>\n\n"
             "/find — ближайшие сборы\n"
-            "/find баскетбол — сборы по виду спорта (баскетбол, футбол, волейбол, теннис, воркаут)\n"
+            "/find теннис — сборы по виду спорта (баскетбол, футбол, волейбол, теннис, падел, пинг-понг, воркаут)\n"
             "/my — игры, в которых вы участвуете\n"
             "/near — площадки рядом с вами (нужна геолокация)\n"
             "/map — открыть карту в мини-приложении\n\n"
             "Можно написать и обычным текстом, например «хочу в футбол»: бот подберёт сборы.\n"
-            "В мини-приложении создаются свои сборы и отправляются заявки о поломках на площадках."
+            "В мини-приложении создаются свои сборы и отправляются заявки о поломках на площадках.\n\n"
+            "💳 Аренда корта оплачивается через безопасный сбор MAX Escrow: каждый вносит только свою долю, "
+            "деньги уходят арендодателю, когда собрано 100%. Если сбор не наберётся к дедлайну, деньги вернутся автоматически."
         )
         return View(text, [[self.app_button("🗺 Открыть карту")], [cb("🔥 Ближайшие сборы", "find")]])
 
@@ -608,15 +769,30 @@ class MaxBotService:
         )
 
     def _game_card(self, game: Game) -> str:
-        names = ", ".join(esc(p.user_name) for p in game.participants) or "—"
+        if game.is_paid:
+            names = ", ".join(f"{esc(p.user_name)} {'✅' if p.has_paid else '⏳'}" for p in game.participants) or "—"
+        else:
+            names = ", ".join(esc(p.user_name) for p in game.participants) or "—"
         lines = [
             f"{sport_emoji(game.sport_type)} <b>{esc(sport_label(game.sport_type))} · {format_label(game.sport_type, game.required_players)}</b>",
-            f"🕖 {human_datetime(game.start_time)}",
+            f"🕖 {time_range(game)}",
             f"📍 {esc(game.court.title)}",
             f"      {esc(game.court.address)}",
             f"👥 {game.current_players}/{game.required_players} · {GAME_STATUS_LABELS.get(game.status, game.status)}",
             f"Игроки: {names}",
         ]
+        if game.is_paid:
+            lines.append(
+                f"🛡️ MAX Escrow #{esc(game.escrow_account_id)}: собрано {format_rub(game.collected_amount)} "
+                f"из {format_rub(game.total_cost)} ({escrow_percent(game)}%)"
+            )
+            if game.booking_reference:
+                lines.append(f"🎫 Корт забронирован, номер брони #{esc(game.booking_reference)}")
+            elif game.payment_status == PaymentStatus.PENDING:
+                deadline = f" · сбор до {to_local(game.payment_deadline):%d.%m %H:%M}" if game.payment_deadline else ""
+                lines.append(f"💳 Доля: {format_rub(escrow.share_amount(game))}{deadline}, иначе автоматический возврат")
+            else:
+                lines.append(f"💳 {PAYMENT_STATUS_LABELS.get(game.payment_status, game.payment_status)}")
         if game.comment:
             lines.append(f"💬 «{esc(game.comment)}»")
         return "\n".join(lines)
@@ -630,13 +806,28 @@ class MaxBotService:
         )
         line = (
             f"{index}. {sport_emoji(game.sport_type)} <b>{esc(sport_label(game.sport_type))} · "
-            f"{format_label(game.sport_type, game.required_players)}</b>, {human_datetime(game.start_time)}\n"
+            f"{format_label(game.sport_type, game.required_players)}</b>, {time_range(game)}\n"
             f"      📍 {esc(game.court.title)}\n"
             f"      👥 {game.current_players}/{game.required_players} · {status}"
         )
+        if game.is_paid:
+            if game.booking_reference:
+                line += f"\n      🎫 корт выкуплен, бронь #{esc(game.booking_reference)}"
+            else:
+                line += (
+                    f"\n      💳 аренда {format_rub(game.total_cost)}, доля {format_rub(escrow.share_amount(game))} · "
+                    f"в эскроу {format_rub(game.collected_amount)} ({escrow_percent(game)}%)"
+                )
         if game.comment:
             line += f"\n      💬 {esc(game.comment[:120])}"
         return line
+
+    @staticmethod
+    def _join_button_text(prefix: str, game: Game) -> str:
+        text = f"{prefix} {sport_emoji(game.sport_type)} {short_datetime(game.start_time)} · {game.current_players}/{game.required_players}"
+        if game.is_paid:
+            text += f" · {format_rub(escrow.share_amount(game))}"
+        return text
 
     async def _games_view(self, session: AsyncSession, sport: str | None) -> View:
         if sport and sport not in {s.value for s in SportType}:
@@ -659,10 +850,7 @@ class MaxBotService:
         for index, game in enumerate(games, 1):
             blocks.append(self._game_line(index, game))
             if game.status == GameStatus.RECRUITING and game.spots_left:
-                buttons.append(
-                    [cb(f"➕ {index}. {sport_emoji(game.sport_type)} {short_datetime(game.start_time)} · "
-                        f"{game.current_players}/{game.required_players}", f"join:{game.id}")]
-                )
+                buttons.append([cb(self._join_button_text(f"➕ {index}.", game), f"join:{game.id}")])
             else:
                 buttons.append([cb(f"ℹ️ {index}. {game.court.title[:40]}", f"court:{game.court_id}")])
         buttons.append(self._sport_filter_row())
@@ -683,12 +871,20 @@ class MaxBotService:
             if game.creator_max_id == identity.max_user_id:
                 line += "\n      👑 вы организатор"
             blocks.append(line)
-            buttons.append(
-                [
-                    cb(f"↩️ Выйти: {sport_emoji(game.sport_type)} {short_datetime(game.start_time)}", f"leave:{game.id}"),
-                    cb("ℹ️ Площадка", f"court:{game.court_id}"),
-                ]
-            )
+            if needs_payment(game, identity.max_user_id):
+                buttons.append(
+                    [cb(f"💳 Внести долю {format_rub(escrow.share_amount(game))}: {sport_emoji(game.sport_type)} "
+                        f"{short_datetime(game.start_time)}", f"pay:{game.id}")]
+                )
+            if game.status == GameStatus.BOOKED:
+                buttons.append([cb(f"🎫 Бронь {game.booking_reference}", f"court:{game.court_id}")])
+            else:
+                buttons.append(
+                    [
+                        cb(f"↩️ Выйти: {sport_emoji(game.sport_type)} {short_datetime(game.start_time)}", f"leave:{game.id}"),
+                        cb("ℹ️ Площадка", f"court:{game.court_id}"),
+                    ]
+                )
         buttons.append([self.app_button("🗺 Открыть карту")])
         return View("\n\n".join(blocks), buttons)
 
@@ -703,6 +899,9 @@ class MaxBotService:
             f"Покрытие: {SURFACE_LABELS.get(court.surface_type, court.surface_type)} · "
             f"освещение: {'есть' if court.has_lighting else 'нет'} · ⭐ {court.rating:.1f}",
         ]
+        if court.is_commercial:
+            price = f" от {format_rub(details.price_from)}" if details.price_from else ""
+            lines.append(f"💳 Аренда по слотам{price}, оплата через безопасный сбор MAX Escrow")
         if court.description:
             lines += ["", esc(court.description)]
         open_defects = [d for d in details.defects if d.status != DefectStatus.RESOLVED]
@@ -713,16 +912,18 @@ class MaxBotService:
         if details.games:
             lines.append("<b>Сборы:</b>")
             for game in details.games[:6]:
+                money = (
+                    f", в эскроу {format_rub(game.collected_amount)} из {format_rub(game.total_cost)}"
+                    if game.is_paid and not game.booking_reference
+                    else ""
+                )
                 lines.append(
-                    f"• {sport_emoji(game.sport_type)} {human_datetime(game.start_time)}: "
+                    f"• {sport_emoji(game.sport_type)} {time_range(game)}: "
                     f"{game.current_players}/{game.required_players}, "
-                    f"{GAME_STATUS_LABELS.get(game.status, game.status).lower()}"
+                    f"{GAME_STATUS_LABELS.get(game.status, game.status).lower()}{money}"
                 )
                 if game.status == GameStatus.RECRUITING and game.spots_left:
-                    buttons.append(
-                        [cb(f"➕ Вступить: {sport_emoji(game.sport_type)} {short_datetime(game.start_time)} · "
-                            f"{game.current_players}/{game.required_players}", f"join:{game.id}")]
-                    )
+                    buttons.append([cb(self._join_button_text("➕ Вступить:", game), f"join:{game.id}")])
         else:
             lines.append("Сборов пока нет. Создайте первый в мини-приложении.")
         buttons.append([self.app_button("🗺 Открыть в мини-приложении", f"court_{court.id}")])
@@ -746,7 +947,7 @@ class MaxBotService:
         buttons.append([self.app_button("🗺 Открыть карту")])
         return View("\n".join(lines), buttons)
 
-    def _join_result_view(self, result: game_service.JoinResult) -> View:
+    def _join_result_view(self, result: game_service.JoinResult, identity: Identity) -> View:
         game = result.game
         if result.confirmed:
             head = "✅ <b>Состав собран!</b> Вы стали последним игроком, остальным участникам ушло уведомление."
@@ -754,12 +955,40 @@ class MaxBotService:
             head = "👍 <b>Вы в составе!</b> Бот напишет, когда команда соберётся."
         else:
             head = "ℹ️ Вы уже в составе этого сбора."
+        buttons: list[list[Button | None]] = []
+        if needs_payment(game, identity.max_user_id):
+            head += (
+                f"\n💳 Внесите свою долю {format_rub(escrow.share_amount(game))} на эскроу-счёт: "
+                "деньги уйдут арендодателю, только когда соберётся вся сумма."
+            )
+            buttons.append([cb(f"💳 Внести долю {format_rub(escrow.share_amount(game))} (тест СБП)", f"pay:{game.id}")])
+        buttons += [
+            [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")],
+            [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude))],
+            [cb("↩️ Выйти из сбора", f"leave:{game.id}"), cb("🔥 К списку", "find")],
+        ]
+        return View(head + "\n\n" + self._game_card(game), buttons)
+
+    def _pay_result_view(self, result: escrow.PaymentResult) -> View:
+        game = result.game
+        if result.booked:
+            return self._booked_view(game)
+        if result.refunds:
+            return View(
+                "↩️ Арендодатель не подтвердил бронь, все взносы возвращены.\n\n" + self._game_card(game),
+                [[cb("🔥 Другие сборы", "find")]],
+            )
+        head = (
+            f"✅ Доля {format_rub(result.transaction.amount)} зачислена на защищённый эскроу-счёт "
+            f"#{esc(game.escrow_account_id)} (тестовый СБП, чек {esc(result.transaction.reference)}).\n"
+            f"Собрано {format_rub(game.collected_amount)} из {format_rub(game.total_cost)} ({escrow_percent(game)}%). "
+            "Корт выкупится автоматически, когда соберётся 100%."
+        )
         return View(
             head + "\n\n" + self._game_card(game),
             [
-                [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")],
-                [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude))],
-                [cb("↩️ Выйти из сбора", f"leave:{game.id}"), cb("🔥 К списку", "find")],
+                [self.app_button("📍 Открыть сбор", f"court_{game.court_id}")],
+                [cb("🙋 Мои игры", "my"), cb("🔥 К списку", "find")],
             ],
         )
 

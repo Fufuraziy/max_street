@@ -23,16 +23,18 @@ function courtIcon(court: Court, activeSport: SportType | null, selected: boolea
   const meta = SPORTS[sport] ?? SPORTS.basketball;
   const extra = court.sport_types.length - 1;
   const games = court.active_games_today;
-  const key = `${sport}|${extra}|${games}|${selected ? 1 : 0}`;
+  const rental = court.is_commercial;
+  const key = `${sport}|${extra}|${games}|${selected ? 1 : 0}|${rental ? 1 : 0}`;
 
   let icon = iconCache.get(key);
   if (!icon) {
     icon = L.divIcon({
       className: 'court-pin-wrapper',
-      html: `<div class="court-pin${selected ? ' is-selected' : ''}" style="--pin:${meta.color};--pin-ring:${hexToRgba(meta.color, 0.35)}">
+      html: `<div class="court-pin${selected ? ' is-selected' : ''}${rental ? ' is-rental' : ''}" style="--pin:${meta.color};--pin-ring:${hexToRgba(meta.color, 0.35)}">
         <div class="court-pin__body"><span class="court-pin__emoji">${meta.emoji}</span></div>
         ${games > 0 ? `<span class="court-pin__badge">${games}</span>` : ''}
         ${extra > 0 ? `<span class="court-pin__extra">+${extra}</span>` : ''}
+        ${rental ? '<span class="court-pin__rent" title="Аренда">₽</span>' : ''}
       </div>`,
       iconSize: [44, 52],
       iconAnchor: [22, 48],

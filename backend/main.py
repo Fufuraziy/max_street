@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -18,6 +20,7 @@ from api.v1 import api_router
 from core.config import settings
 from core.database import SessionLocal, create_tables, engine, wait_for_db
 from core.errors import DomainError
+from services import escrow
 from services.max_bot import bot_service
 from services.seeder import run_seed
 
@@ -46,6 +49,8 @@ FIELD_LABELS = {
     "user_max_id": "ID пользователя",
     "defect_type": "Тип проблемы",
     "court_id": "Площадка",
+    "slot_id": "Слот аренды",
+    "amount": "Сумма",
 }
 
 
@@ -77,6 +82,21 @@ def _validation_message(error: dict[str, Any]) -> str:
     return f"{label}: {message}" if label else message
 
 
+async def escrow_watchdog() -> None:
+    """Фоновая проверка дедлайнов эскроу-сборов: не набравшим сумму — автоматический возврат средств."""
+    while True:
+        try:
+            async with SessionLocal() as session:
+                expired = await escrow.expire_overdue(session)
+            for game_id, refunds in expired:
+                await bot_service.notify_refund(game_id, refunds, "deadline")
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - сторож не должен падать
+            logger.exception("Ошибка проверки дедлайнов эскроу")
+        await asyncio.sleep(settings.escrow_watchdog_interval_seconds)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await wait_for_db()
@@ -84,8 +104,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     async with SessionLocal() as session:
         await run_seed(session)
     await bot_service.start()
-    logger.info("MAX Стрит запущен, режим бота: %s", bot_service.mode)
+    watchdog = asyncio.create_task(escrow_watchdog(), name="escrow-watchdog")
+    logger.info("MAX Стрит запущен, режим бота: %s, платежи: %s", bot_service.mode, settings.payment_mode)
     yield
+    watchdog.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await watchdog
     await bot_service.stop()
     await engine.dispose()
 

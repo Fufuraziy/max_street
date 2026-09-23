@@ -9,6 +9,7 @@ import {
   Plus,
   Route,
   Share2,
+  ShieldCheck,
   Star,
   Trees,
   Warehouse,
@@ -16,8 +17,8 @@ import {
   X,
 } from 'lucide-react';
 import { DEFECT_STATUS_STYLES, SPORTS, SURFACES } from '../lib/constants';
-import { hexToRgba, timeAgo } from '../lib/format';
-import type { Court, CourtDetail, Identity } from '../types';
+import { formatRub, hexToRgba, timeAgo } from '../lib/format';
+import type { Court, CourtDetail, Game, Identity } from '../types';
 import GameCard from './GameCard';
 import { IconButton, SectionTitle } from './ui';
 
@@ -32,6 +33,7 @@ interface CourtDetailsSheetProps {
   onReportDefect: () => void;
   onJoin: (gameId: number) => void;
   onLeave: (gameId: number) => void;
+  onPay: (game: Game) => void;
   onRoute: () => void;
   onShare: () => void;
 }
@@ -77,6 +79,7 @@ export default function CourtDetailsSheet({
   onReportDefect,
   onJoin,
   onLeave,
+  onPay,
   onRoute,
   onShare,
 }: CourtDetailsSheetProps) {
@@ -165,14 +168,32 @@ export default function CourtDetailsSheet({
           />
         </div>
 
+        {info.is_commercial && (
+          <div className="mt-3 flex gap-3 rounded-2xl bg-emerald-600 px-4 py-3 text-white">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+            <div className="text-sm">
+              <p className="font-semibold">
+                Коммерческий корт · аренда {info.price_from ? `от ${formatRub(info.price_from)}` : 'по расписанию'} за 90 мин
+              </p>
+              <p className="mt-0.5 text-white/85">
+                Оплата через безопасный сбор MAX Escrow: каждый вносит свою долю, корт выкупается при 100%.
+              </p>
+            </div>
+          </div>
+        )}
+
         {info.description && (
           <p className="mt-3 px-1 text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">{info.description}</p>
         )}
 
         <div className="mt-4 flex gap-2">
-          <button type="button" className="btn-primary flex-1" onClick={onCreateGame}>
+          <button
+            type="button"
+            className={`btn-primary flex-1 ${info.is_commercial ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+            onClick={onCreateGame}
+          >
             <Plus className="h-5 w-5" />
-            Создать сбор
+            {info.is_commercial ? 'Выбрать слот и собрать' : 'Создать сбор'}
           </button>
           <button type="button" className="btn-secondary w-12 px-0" onClick={onRoute} aria-label="Маршрут" title="Маршрут">
             <Route className="h-5 w-5" />
@@ -202,6 +223,7 @@ export default function CourtDetailsSheet({
               busy={busyGameId === game.id}
               onJoin={() => onJoin(game.id)}
               onLeave={() => onLeave(game.id)}
+              onPay={() => onPay(game)}
             />
           ))
         )}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Bot, CalendarDays } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import { isInsideMax } from '../lib/max';
-import type { BotInfo, GameWithCourt, Identity } from '../types';
+import type { BotInfo, Game, GameWithCourt, Identity } from '../types';
 import GameCard from './GameCard';
 import { Modal, Spinner } from './ui';
 
@@ -14,6 +14,7 @@ interface MyGamesSheetProps {
   onClose: () => void;
   onOpenCourt: (game: GameWithCourt) => void;
   onLeave: (gameId: number) => void;
+  onPay: (game: Game, courtTitle: string) => void;
 }
 
 export default function MyGamesSheet({
@@ -24,6 +25,7 @@ export default function MyGamesSheet({
   onClose,
   onOpenCourt,
   onLeave,
+  onPay,
 }: MyGamesSheetProps) {
   const [games, setGames] = useState<GameWithCourt[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function MyGamesSheet({
           busy={busyGameId === game.id}
           onJoin={() => undefined}
           onLeave={() => onLeave(game.id)}
+          onPay={() => onPay(game, game.court.title)}
           onOpenCourt={() => onOpenCourt(game)}
         />
       ))}

@@ -204,6 +204,27 @@ body {
   border: 1.5px solid #fff;
 }
 
+.court-pin__rent {
+  position: absolute;
+  top: 26px;
+  right: -7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #059669;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+  border: 1.5px solid #fff;
+}
+
+.court-pin.is-rental .court-pin__body {
+  border-color: #d1fae5;
+  border-radius: 50% 50% 50% 8%;
+}
+
 .court-pin.is-selected {
   transform: scale(1.25);
 }

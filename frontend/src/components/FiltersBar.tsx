@@ -1,4 +1,4 @@
-import { Flame } from 'lucide-react';
+import { Flame, ShieldCheck } from 'lucide-react';
 import { SPORT_ORDER, SPORTS } from '../lib/constants';
 import { hapticImpact } from '../lib/max';
 import type { SportType } from '../types';
@@ -8,6 +8,8 @@ interface FiltersBarProps {
   onSportChange: (sport: SportType | null) => void;
   onlyWithGames: boolean;
   onOnlyWithGamesChange: (value: boolean) => void;
+  onlyRental: boolean;
+  onOnlyRentalChange: (value: boolean) => void;
   className?: string;
 }
 
@@ -16,6 +18,8 @@ export default function FiltersBar({
   onSportChange,
   onlyWithGames,
   onOnlyWithGamesChange,
+  onlyRental,
+  onOnlyRentalChange,
   className = '',
 }: FiltersBarProps) {
   const pick = (value: SportType | null) => {
@@ -32,6 +36,18 @@ export default function FiltersBar({
         className={sport === null ? 'chip bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900' : 'chip-idle'}
       >
         Все
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          hapticImpact('light');
+          onOnlyRentalChange(!onlyRental);
+        }}
+        aria-pressed={onlyRental}
+        className={onlyRental ? 'chip bg-emerald-600 text-white shadow-sm' : 'chip-idle'}
+      >
+        <ShieldCheck className="h-4 w-4" />
+        Аренда
       </button>
       {SPORT_ORDER.map((key) => {
         const meta = SPORTS[key];

@@ -9,8 +9,11 @@ import type {
   GameWithCourt,
   JoinResponse,
   LeaveResponse,
+  PayPayload,
+  PayResponse,
   PlayerPayload,
   ReportDefectPayload,
+  Slot,
   SportType,
 } from '../types';
 
@@ -88,6 +91,9 @@ export function errorMessage(error: unknown): string {
 export const api = {
   listCourts: (params: { sport_type?: SportType } = {}) => request<Court[]>('/courts', { query: params }),
   getCourt: (id: number) => request<CourtDetail>(`/courts/${id}`),
+  getSlots: (courtId: number, date: string) => request<Slot[]>(`/courts/${courtId}/slots`, { query: { date } }),
+  payShare: (gameId: number, payload: PayPayload) =>
+    request<PayResponse>(`/games/${gameId}/pay`, { method: 'POST', body: payload }),
   createCourt: (payload: CreateCourtPayload) => request<Court>('/courts', { method: 'POST', body: payload }),
   listGames: (params: { court_id?: number; user_max_id?: string; sport_type?: SportType } = {}) =>
     request<GameWithCourt[]>('/games', { query: params }),

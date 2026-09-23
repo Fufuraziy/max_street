@@ -37,6 +37,15 @@ class Settings(BaseSettings):
 
     # --- Тестовые данные ---
     seed_demo_data: bool = True
+    slots_seed_days: int = 5
+
+    # --- Аренда кортов и эскроу (mock-провайдеры) ---
+    payment_mode: str = "mock"  # mock — тестовый СБП и mock-арендодатель, реальные деньги не списываются
+    escrow_deadline_minutes: int = 120  # дедлайн сбора средств: за столько минут до начала слота
+    escrow_watchdog_interval_seconds: int = 30
+    booking_webhook_url: str = ""  # URL внешней системы арендодателя (если пусто — только mock-провайдер)
+    booking_webhook_secret: str = ""  # подпись вебхука: X-MaxStreet-Signature: sha256=<hmac>
+    booking_provider_name: str = "MAX Sport Booking (mock)"
 
     # --- MAX Bot API ---
     max_bot_token: str = ""
@@ -90,6 +99,10 @@ class Settings(BaseSettings):
     @property
     def public_miniapp_url(self) -> str:
         return self.miniapp_url.rstrip("/")
+
+    @property
+    def mock_payments(self) -> bool:
+        return self.payment_mode.strip().lower() == "mock"
 
 
 @lru_cache

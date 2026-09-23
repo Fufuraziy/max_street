@@ -1,7 +1,7 @@
 {
   "meta": {
     "city": "Санкт-Петербург",
-    "source": "Координаты, виды спорта, покрытие и освещение взяты из OpenStreetMap (© участники OpenStreetMap, лицензия ODbL). Названия, описания и рейтинги — демонстрационные.",
+    "source": "Координаты, виды спорта, покрытие и освещение взяты из OpenStreetMap (© участники OpenStreetMap, лицензия ODbL). Названия, описания и рейтинги демонстрационные. Коммерческие корты (is_commercial) — демо-арендодатели: цены и расписание выдаёт mock-провайдер, см. court_slots_seed.json.",
     "generated_at": "2026-09-23"
   },
   "courts": [
@@ -264,6 +264,76 @@
       "rating": 4.1,
       "description": "Мини-футбол и баскетбол на резиновом покрытии на юго-западе города. Освещение работает до позднего вечера.",
       "osm_ref": "way/113928107"
+    },
+    {
+      "title": "Падел-корты на Уральской",
+      "sport_types": ["padel"],
+      "address": "Уральская ул., Василеостровский р-н",
+      "latitude": 59.951479,
+      "longitude": 30.261559,
+      "surface_type": "artificial_turf",
+      "has_lighting": true,
+      "is_indoor": true,
+      "is_commercial": true,
+      "rating": 4.8,
+      "description": "Крытые падел-корты с искусственным газоном. Аренда корта на 90 минут, классический формат 2×2. Оплата через безопасный сбор MAX Escrow: каждый вносит только свою долю.",
+      "osm_ref": "node/13308306309"
+    },
+    {
+      "title": "Теннисные корты на Крестовском острове",
+      "sport_types": ["tennis"],
+      "address": "Рюхина ул., Крестовский остров, Петроградский р-н",
+      "latitude": 59.970339,
+      "longitude": 30.257141,
+      "surface_type": "hard",
+      "has_lighting": true,
+      "is_indoor": false,
+      "is_commercial": true,
+      "rating": 4.7,
+      "description": "Открытые хард-корты на Крестовском острове с вечерним освещением. Аренда по 90 минут для одиночной или парной игры.",
+      "osm_ref": "way/85422031"
+    },
+    {
+      "title": "Крытые теннисные корты на Петроградской",
+      "sport_types": ["tennis"],
+      "address": "Пинский пер., Петроградский р-н",
+      "latitude": 59.959961,
+      "longitude": 30.333197,
+      "surface_type": "hard",
+      "has_lighting": true,
+      "is_indoor": true,
+      "is_commercial": true,
+      "rating": 4.6,
+      "description": "Крытые корты с покрытием хард, играть можно круглый год. Удобно для парных игр 2×2 после работы.",
+      "osm_ref": "way/1343083657"
+    },
+    {
+      "title": "Футбольный манеж на улице Дыбенко",
+      "sport_types": ["football"],
+      "address": "ул. Дыбенко, Невский р-н",
+      "latitude": 59.908449,
+      "longitude": 30.487403,
+      "surface_type": "artificial_turf",
+      "has_lighting": true,
+      "is_indoor": true,
+      "is_commercial": true,
+      "rating": 4.6,
+      "description": "Крытый манеж с искусственным газоном: поле для мини-футбола 5×5 и 6×6. Аренда по 90 минут, играть можно в любую погоду.",
+      "osm_ref": "way/1225847236"
+    },
+    {
+      "title": "Игровой зал на улице Оптиков",
+      "sport_types": ["basketball", "volleyball"],
+      "address": "ул. Оптиков, Приморский р-н",
+      "latitude": 59.996166,
+      "longitude": 30.253586,
+      "surface_type": "parquet",
+      "has_lighting": true,
+      "is_indoor": true,
+      "is_commercial": true,
+      "rating": 4.5,
+      "description": "Зал с паркетом для баскетбола и волейбола. Аренда по 90 минут, подходит для игр 5×5 и 6×6.",
+      "osm_ref": "relation/13211358"
     }
   ],
   "demo_games": [

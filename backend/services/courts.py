@@ -4,25 +4,35 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from core.errors import ConflictError, NotFoundError
-from core.timeutils import active_since, today_bounds
-from models import Court, CourtDefect, Game
+from core.timeutils import active_since, today_bounds, utcnow
+from models import Court, CourtDefect, CourtSlot, Game
 from models.enums import ACTIVE_GAME_STATUSES
 from schemas.court import CourtCreate
+from services.mock_booking_provider import SLOT_MIN_LEAD
 
 DUPLICATE_RADIUS_M = 30.0
 EARTH_RADIUS_M = 6_371_000.0
 
 
 @dataclass(slots=True)
+class CourtListItem:
+    court: Court
+    active_games_today: int
+    price_from: Decimal | None
+
+
+@dataclass(slots=True)
 class CourtDetails:
     court: Court
     active_games_today: int
+    price_from: Decimal | None
     games: list[Game]
     defects: list[CourtDefect]
 
@@ -62,6 +72,22 @@ async def active_games_today(session: AsyncSession, court_ids: list[int] | None 
     return {court_id: count for court_id, count in rows.all()}
 
 
+async def slot_prices_from(session: AsyncSession, court_ids: list[int]) -> dict[int, Decimal]:
+    """Минимальная цена свободного будущего слота аренды по площадкам."""
+    if not court_ids:
+        return {}
+    rows = await session.execute(
+        select(CourtSlot.court_id, func.min(CourtSlot.price))
+        .where(
+            CourtSlot.court_id.in_(court_ids),
+            CourtSlot.is_booked.is_(False),
+            CourtSlot.start_time >= utcnow() + SLOT_MIN_LEAD,
+        )
+        .group_by(CourtSlot.court_id)
+    )
+    return {court_id: price for court_id, price in rows.all()}
+
+
 async def list_courts(
     session: AsyncSession,
     *,
@@ -71,8 +97,9 @@ async def list_courts(
     min_lon: float | None = None,
     max_lon: float | None = None,
     has_lighting: bool | None = None,
+    is_commercial: bool | None = None,
     limit: int = 500,
-) -> list[tuple[Court, int]]:
+) -> list[CourtListItem]:
     stmt = select(Court)
     if sport_type:
         stmt = stmt.where(Court.sport_types.contains([sport_type]))
@@ -86,11 +113,14 @@ async def list_courts(
         stmt = stmt.where(Court.longitude <= max_lon)
     if has_lighting is not None:
         stmt = stmt.where(Court.has_lighting == has_lighting)
+    if is_commercial is not None:
+        stmt = stmt.where(Court.is_commercial == is_commercial)
     stmt = stmt.order_by(Court.rating.desc(), Court.id).limit(limit)
 
     courts = list((await session.scalars(stmt)).all())
     counts = await active_games_today(session, [court.id for court in courts])
-    return [(court, counts.get(court.id, 0)) for court in courts]
+    prices = await slot_prices_from(session, [court.id for court in courts if court.is_commercial])
+    return [CourtListItem(court, counts.get(court.id, 0), prices.get(court.id)) for court in courts]
 
 
 async def get_court(session: AsyncSession, court_id: int) -> Court:
@@ -104,13 +134,14 @@ async def get_court_details(session: AsyncSession, court_id: int) -> CourtDetail
     court = await get_court(session, court_id)
     games = await session.scalars(
         select(Game)
-        .options(selectinload(Game.participants))
+        .options(selectinload(Game.participants), selectinload(Game.slot))
         .where(
             Game.court_id == court_id,
             Game.status.in_(ACTIVE_GAME_STATUSES),
             Game.start_time >= active_since(),
         )
         .order_by(Game.start_time)
+        .execution_options(populate_existing=True)
     )
     defects = await session.scalars(
         select(CourtDefect)
@@ -119,9 +150,11 @@ async def get_court_details(session: AsyncSession, court_id: int) -> CourtDetail
         .limit(20)
     )
     counts = await active_games_today(session, [court_id])
+    prices = await slot_prices_from(session, [court_id]) if court.is_commercial else {}
     return CourtDetails(
         court=court,
         active_games_today=counts.get(court_id, 0),
+        price_from=prices.get(court_id),
         games=list(games.all()),
         defects=list(defects.all()),
     )
