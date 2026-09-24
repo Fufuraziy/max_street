@@ -89,9 +89,10 @@ export default function App() {
   const loadCourts = useCallback(async () => {
     try {
       const data = await api.listCourts(sport ? { sport_type: sport } : {});
-      setCourts(data);
+      setCourts(Array.isArray(data) ? data : []);
       setLoadError(null);
     } catch (err) {
+      setCourts([]);
       setLoadError(errorMessage(err));
     } finally {
       setLoading(false);
@@ -206,13 +207,14 @@ export default function App() {
 
   // Первый показ: площадка из deep link (startapp=court_<id>) или все площадки в кадре.
   useEffect(() => {
-    if (!map || initialViewDone.current || courts.length === 0) return;
+    const list = courts || [];
+    if (!map || initialViewDone.current || list.length === 0) return;
     initialViewDone.current = true;
     if (startCourtId.current !== null) {
       selectCourt(startCourtId.current);
       return;
     }
-    const bounds = L.latLngBounds(courts.map((court) => [court.latitude, court.longitude] as [number, number]));
+    const bounds = L.latLngBounds(list.map((court) => [court.latitude, court.longitude] as [number, number]));
     const size = map.getSize();
     if (size.x > 0 && size.y > 0) {
       map.fitBounds(bounds, { paddingTopLeft: [24, 140], paddingBottomRight: [24, 32], maxZoom: 14 });
@@ -363,8 +365,8 @@ export default function App() {
   const handleCourtCreated = useCallback(
     (court: Court) => {
       setPickedPoint(null);
-      setCourts((current) => [...current.filter((item) => item.id !== court.id), court]);
-      courtsRef.current = [...courtsRef.current, court];
+      setCourts((current) => [...(current || []).filter((item) => item.id !== court.id), court]);
+      courtsRef.current = [...(courtsRef.current || []), court];
       notify('Площадка добавлена на карту. Спасибо!', 'success');
       selectCourt(court.id, { lat: court.latitude, lng: court.longitude });
     },
@@ -404,18 +406,19 @@ export default function App() {
 
   const visibleCourts = useMemo(
     () =>
-      courts.filter(
+      (courts || []).filter(
         (court) => (!onlyWithGames || court.active_games_today > 0) && (!onlyRental || court.is_commercial),
       ),
     [courts, onlyWithGames, onlyRental],
   );
-  const gamesToday = useMemo(() => courts.reduce((sum, court) => sum + court.active_games_today, 0), [courts]);
+  const gamesToday = useMemo(() => (courts || []).reduce((sum, court) => sum + court.active_games_today, 0), [courts]);
   const selectedCourt: Court | null =
-    detail && detail.id === selectedId ? detail : (courts.find((court) => court.id === selectedId) ?? null);
+    detail && detail.id === selectedId ? detail : ((courts || []).find((court) => court.id === selectedId) ?? null);
 
+  const courtsCount = courts?.length ?? 0;
   const subtitle = loading
     ? 'Загружаем площадки…'
-    : `${courts.length} ${plural(courts.length, ['площадка', 'площадки', 'площадок'])} · ${gamesToday} ${plural(gamesToday, [
+    : `${courtsCount} ${plural(courtsCount, ['площадка', 'площадки', 'площадок'])} · ${gamesToday} ${plural(gamesToday, [
         'сбор',
         'сбора',
         'сборов',

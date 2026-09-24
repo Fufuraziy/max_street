@@ -25,7 +25,7 @@ export default function AddCourtModal({ point, onClose, onCreated }: AddCourtMod
   const canSubmit = title.trim().length >= 3 && address.trim().length >= 3 && sports.length > 0;
 
   const toggleSport = (sport: SportType) =>
-    setSports((current) => (current.includes(sport) ? current.filter((s) => s !== sport) : [...current, sport]));
+    setSports((current) => ((current || []).includes(sport) ? (current || []).filter((s) => s !== sport) : [...(current || []), sport]));
 
   const submit = async () => {
     setSubmitting(true);

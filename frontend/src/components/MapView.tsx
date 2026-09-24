@@ -86,7 +86,7 @@ export default function MapView({
       />
       <ZoomControl position="bottomright" />
       <MapEvents onMapReady={onMapReady} onMapClick={onMapClick} />
-      {courts.map((court) => (
+      {(courts || []).map((court) => (
         <Marker
           key={court.id}
           position={[court.latitude, court.longitude]}

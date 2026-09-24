@@ -145,11 +145,14 @@ export default function CreateGameModal({ court, identity, onClose, onCreated }:
           return;
         }
         autoAdvanced.current = true;
-        setSlots(data);
+        setSlots(Array.isArray(data) ? data : []);
         setSlotId(firstFree?.id ?? null);
       })
       .catch((err) => {
-        if (!cancelled) setSlotsError(errorMessage(err));
+        if (!cancelled) {
+          setSlots([]);
+          setSlotsError(errorMessage(err));
+        }
       });
     return () => {
       cancelled = true;

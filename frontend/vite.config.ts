@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 
 // В dev-режиме запросы /api проксируются на локальный бэкенд, в Docker это делает Nginx.
 export default defineConfig({
+  base: '/max_street/',
   plugins: [react()],
   server: {
     host: true,

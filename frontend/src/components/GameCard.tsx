@@ -74,7 +74,8 @@ function EscrowPanel({ game }: { game: Game }) {
 
 export default function GameCard({ game, identity, busy, onJoin, onLeave, onPay, court, onOpenCourt }: GameCardProps) {
   const meta = SPORTS[game.sport_type] ?? SPORTS.basketball;
-  const me = game.participants.find((p) => p.user_max_id === identity.maxUserId);
+  const participants = Array.isArray(game.participants) ? game.participants : [];
+  const me = participants.find((p) => p.user_max_id === identity.maxUserId);
   const isMember = Boolean(me);
   const isCreator = game.creator_max_id === identity.maxUserId;
   const isFull = game.current_players >= game.required_players;
@@ -84,8 +85,8 @@ export default function GameCard({ game, identity, busy, onJoin, onLeave, onPay,
   const due = amountDue(game.total_cost, game.collected_amount, game.share_amount, game.paid_count, game.required_players);
   const statusLabel = game.is_paid && !booked ? game.payment_status_label ?? game.status_label : game.status_label;
   const statusStyle = game.is_paid && !booked ? PAYMENT_STATUS_STYLES[game.payment_status] : GAME_STATUS_STYLES[game.status];
-  const shown = game.participants.slice(0, 6);
-  const hidden = game.participants.length - shown.length;
+  const shown = participants.slice(0, 6);
+  const hidden = participants.length - shown.length;
 
   return (
     <article className="card mt-2">
@@ -143,7 +144,7 @@ export default function GameCard({ game, identity, busy, onJoin, onLeave, onPay,
 
       {game.is_paid ? (
         <ul className="mt-3 space-y-2">
-          {game.participants.map((participant) => (
+          {participants.map((participant) => (
             <li key={participant.user_max_id} className="flex items-center justify-between gap-2 text-sm">
               <span className="flex min-w-0 items-center gap-2">
                 <Avatar participant={participant} />
@@ -186,7 +187,7 @@ export default function GameCard({ game, identity, busy, onJoin, onLeave, onPay,
             )}
           </div>
           <p className="min-w-0 flex-1 truncate text-sm text-slate-500 dark:text-slate-400">
-            {game.participants.map((p) => p.user_name).join(', ')}
+            {participants.map((p) => p.user_name).join(', ')}
           </p>
         </div>
       )}

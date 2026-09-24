@@ -36,12 +36,15 @@ export default function MyGamesSheet({
       .listGames({ user_max_id: identity.maxUserId })
       .then((data) => {
         if (!cancelled) {
-          setGames(data);
+          setGames(Array.isArray(data) ? data : []);
           setError(null);
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(errorMessage(err));
+        if (!cancelled) {
+          setGames([]);
+          setError(errorMessage(err));
+        }
       });
     return () => {
       cancelled = true;

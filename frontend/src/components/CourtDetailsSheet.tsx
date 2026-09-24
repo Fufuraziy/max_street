@@ -86,10 +86,10 @@ export default function CourtDetailsSheet({
   const [expanded, setExpanded] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const info = detail ?? court;
-  const games = detail?.games ?? [];
-  const defects = detail?.defects ?? [];
-  const openDefects = defects.filter((d) => d.status !== 'resolved');
-  const resolvedDefects = defects.filter((d) => d.status === 'resolved');
+  const games = Array.isArray(detail?.games) ? detail.games : [];
+  const defects = Array.isArray(detail?.defects) ? detail.defects : [];
+  const openDefects = (defects || []).filter((d) => d.status !== 'resolved');
+  const resolvedDefects = (defects || []).filter((d) => d.status === 'resolved');
 
   const onTouchStart = (event: TouchEvent) => {
     touchStartY.current = event.touches[0]?.clientY ?? null;
