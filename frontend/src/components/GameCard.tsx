@@ -23,6 +23,7 @@ interface GameCardProps {
   onJoin: () => void;
   onLeave: () => void;
   onPay: () => void;
+  onQuickSimulatePay?: () => void;
   court?: GameCourt;
   onOpenCourt?: () => void;
 }
@@ -72,7 +73,17 @@ function EscrowPanel({ game }: { game: Game }) {
   );
 }
 
-export default function GameCard({ game, identity, busy, onJoin, onLeave, onPay, court, onOpenCourt }: GameCardProps) {
+export default function GameCard({
+  game,
+  identity,
+  busy,
+  onJoin,
+  onLeave,
+  onPay,
+  onQuickSimulatePay,
+  court,
+  onOpenCourt,
+}: GameCardProps) {
   const meta = SPORTS[game.sport_type] ?? SPORTS.basketball;
   const participants = Array.isArray(game.participants) ? game.participants : [];
   const me = participants.find((p) => p.user_max_id === identity.maxUserId);
@@ -142,6 +153,18 @@ export default function GameCard({ game, identity, busy, onJoin, onLeave, onPay,
 
       {game.is_paid && <EscrowPanel game={game} />}
 
+      {collecting && game.spots_left === 1 && !booked && (
+        <div className="mt-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
+          <div className="flex items-center gap-1.5 font-semibold text-amber-800 dark:text-amber-300">
+            <Zap className="h-4 w-4 shrink-0 text-amber-500 fill-amber-500" />
+            Свободен слот 6/6 · Проверка Safe Split для жюри
+          </div>
+          <p className="mt-1 leading-relaxed">
+            Нажмите кнопку ниже: внесите долю {formatRub(game.share_amount)} — лобби моментально соберет 100% и Safe Split переведет статус в «Забронировано».
+          </p>
+        </div>
+      )}
+
       {game.is_paid ? (
         <ul className="mt-3 space-y-2">
           {participants.map((participant) => (
@@ -209,9 +232,14 @@ export default function GameCard({ game, identity, busy, onJoin, onLeave, onPay,
         ) : isMember ? (
           <div className="flex flex-wrap gap-2">
             {collecting && me && !me.has_paid ? (
-              <button type="button" className="btn-primary flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={busy} onClick={onPay}>
-                {busy ? <Spinner /> : <Wallet className="h-5 w-5" />}
-                Внести долю ({formatRub(due)})
+              <button
+                type="button"
+                className="btn-primary flex-1 bg-emerald-600 hover:bg-emerald-700"
+                disabled={busy}
+                onClick={onQuickSimulatePay || onPay}
+              >
+                {busy ? <Spinner /> : <Zap className="h-5 w-5 text-amber-300 fill-amber-300" />}
+                Сымитировать оплату доли ({formatRub(due)})
               </button>
             ) : (
               <div className="flex min-h-[48px] flex-1 items-center gap-2 rounded-2xl bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
@@ -234,6 +262,26 @@ export default function GameCard({ game, identity, busy, onJoin, onLeave, onPay,
           <button type="button" className="btn-secondary w-full" disabled>
             Мест нет
           </button>
+        ) : collecting && game.spots_left === 1 && onQuickSimulatePay ? (
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              className="btn-primary w-full bg-emerald-600 hover:bg-emerald-700 shadow-md font-semibold text-[15px]"
+              disabled={busy}
+              onClick={onQuickSimulatePay}
+            >
+              {busy ? <Spinner /> : <Zap className="h-5 w-5 text-amber-300 fill-amber-300" />}
+              Сымитировать оплату доли (Слот 6/6 · {formatRub(game.share_amount)})
+            </button>
+            <button
+              type="button"
+              className="btn-secondary w-full text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 py-1.5"
+              disabled={busy}
+              onClick={onJoin}
+            >
+              Присоединиться через окно оплаты (+1)
+            </button>
+          </div>
         ) : (
           <button type="button" className="btn-primary w-full" disabled={busy} onClick={onJoin}>
             {busy ? <Spinner /> : <UserPlus className="h-5 w-5" />}

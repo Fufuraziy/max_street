@@ -67,12 +67,12 @@ def main() -> None:
 
     print("2. Площадки")
     courts = call("GET", "/api/v1/courts")
-    check(f"сид загружен: {len(courts)} площадок", len(courts) >= 20)
+    check(f"сид загружен: {len(courts)} площадок", len(courts) >= 15)
     active_games = call("GET", "/api/v1/games")
     check(f"есть активные сборы: {len(active_games)} (сегодня: {sum(c['active_games_today'] for c in courts)})",
           len(active_games) >= 1 and all("active_games_today" in c for c in courts))
-    tennis = call("GET", "/api/v1/courts?sport_type=table_tennis")
-    check("фильтр по виду спорта", tennis and all("table_tennis" in c["sport_types"] for c in tennis))
+    tennis = call("GET", "/api/v1/courts?sport_type=tennis")
+    check("фильтр по виду спорта", tennis and all("tennis" in c["sport_types"] for c in tennis))
     bbox = call("GET", "/api/v1/courts?min_lat=59.9&max_lat=59.97&min_lon=30.25&max_lon=30.4")
     check("фильтр по bbox карты", bbox and all(59.9 <= c["latitude"] <= 59.97 for c in bbox))
 

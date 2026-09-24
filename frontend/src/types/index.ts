@@ -5,8 +5,19 @@ export type SportType =
   | 'table_tennis'
   | 'workout'
   | 'tennis'
-  | 'padel';
-export type SurfaceType = 'rubber' | 'asphalt' | 'artificial_turf' | 'hard' | 'parquet';
+export type SurfaceType =
+  | 'rubber'
+  | 'asphalt'
+  | 'artificial_turf'
+  | 'hard'
+  | 'parquet'
+  | 'acrylic'
+  | 'artificial_grass'
+  | 'panoramic_glass_turf'
+  | 'padel_turf'
+  | 'clay'
+  | 'tera_flex'
+  | string;
 export type GameStatus = 'recruiting' | 'confirmed' | 'booked' | 'finished' | 'cancelled';
 export type PaymentStatus = 'pending' | 'funded' | 'paid_to_court' | 'refunded';
 export type SlotStatus = 'free' | 'reserved' | 'booked';

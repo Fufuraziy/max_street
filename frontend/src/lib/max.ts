@@ -122,8 +122,8 @@ function writeGuest(profile: GuestProfile): void {
 
 function ensureGuest(): GuestProfile {
   const existing = readGuest();
-  if (existing) return existing;
-  const profile = { id: `guest_${Math.random().toString(36).slice(2, 10)}`, name: '' };
+  if (existing && existing.name.trim()) return existing;
+  const profile = { id: existing?.id || `guest_${Math.random().toString(36).slice(2, 10)}`, name: 'Гость (Жюри)' };
   writeGuest(profile);
   return profile;
 }

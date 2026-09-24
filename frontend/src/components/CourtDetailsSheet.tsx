@@ -34,6 +34,7 @@ interface CourtDetailsSheetProps {
   onJoin: (gameId: number) => void;
   onLeave: (gameId: number) => void;
   onPay: (game: Game) => void;
+  onQuickSimulatePay?: (game: Game) => void;
   onRoute: () => void;
   onShare: () => void;
 }
@@ -80,6 +81,7 @@ export default function CourtDetailsSheet({
   onJoin,
   onLeave,
   onPay,
+  onQuickSimulatePay,
   onRoute,
   onShare,
 }: CourtDetailsSheetProps) {
@@ -224,6 +226,7 @@ export default function CourtDetailsSheet({
               onJoin={() => onJoin(game.id)}
               onLeave={() => onLeave(game.id)}
               onPay={() => onPay(game)}
+              onQuickSimulatePay={onQuickSimulatePay ? () => onQuickSimulatePay(game) : undefined}
             />
           ))
         )}

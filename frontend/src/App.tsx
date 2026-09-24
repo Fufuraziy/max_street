@@ -295,6 +295,48 @@ export default function App() {
             result.confirmed ? '🎉 Состав собран! Бот MAX уведомит всех участников' : result.message,
             result.joined ? 'success' : 'info',
           );
+          if (result.joined && result.game.is_paid && result.game.payment_status === 'pending') {
+            const court = courtsRef.current.find((c) => c.id === result.game.court_id);
+            setPayTarget({ game: result.game, courtTitle: court?.title || '' });
+          }
+        } catch (err) {
+          notify(errorMessage(err), 'error');
+        } finally {
+          setBusyGameId(null);
+          void refreshAll();
+        }
+      });
+    },
+    [withIdentity, notify, refreshAll],
+  );
+
+  const simulateQuickPay = useCallback(
+    (game: Game) => {
+      withIdentity(async (me) => {
+        setBusyGameId(game.id);
+        try {
+          const isMember = game.participants?.some((p) => p.user_max_id === me.maxUserId);
+          let targetGame = game;
+          if (!isMember) {
+            const joinResult = await api.joinGame(game.id, {
+              user_max_id: me.maxUserId,
+              user_name: me.name || 'Гость (Жюри)',
+              username: me.username,
+            });
+            targetGame = joinResult.game;
+          }
+          const due = targetGame.total_cost - targetGame.collected_amount;
+          const payResult = await api.payShare(game.id, {
+            user_max_id: me.maxUserId,
+            user_name: me.name || 'Гость (Жюри)',
+            amount: due,
+            payment_method: 'sbp_mock',
+          });
+          if (payResult.booked) {
+            notify(`🎉 Корт забронирован! Safe Split сработал, бронь #${payResult.booking_reference}`, 'success');
+          } else {
+            notify(payResult.message, 'success');
+          }
         } catch (err) {
           notify(errorMessage(err), 'error');
         } finally {
@@ -542,6 +584,7 @@ export default function App() {
           onJoin={joinGame}
           onLeave={(gameId) => void leaveGame(gameId)}
           onPay={(game) => openPay(game, selectedCourt.title)}
+          onQuickSimulatePay={simulateQuickPay}
           onRoute={() => openExternalLink(routeUrl(selectedCourt.latitude, selectedCourt.longitude))}
           onShare={() => void shareCourt(selectedCourt)}
         />

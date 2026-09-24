@@ -100,7 +100,19 @@ export const SPORTS: Record<SportType, SportMeta> = {
     ],
     defaultPlayers: 4,
   },
-};
+  multisport: {
+    label: 'Мультиспорт',
+    short: 'Мультиспорт',
+    emoji: '🏅',
+    color: '#8B5CF6',
+    formats: [
+      { label: 'Вдвоём', players: 2 },
+      { label: 'Группа 4', players: 4 },
+      { label: 'Группа 6', players: 6 },
+    ],
+    defaultPlayers: 4,
+  },
+} as Record<string, SportMeta>;
 
 export const SPORT_ORDER: SportType[] = [
   'basketball',
@@ -112,12 +124,18 @@ export const SPORT_ORDER: SportType[] = [
   'workout',
 ];
 
-export const SURFACES: Record<SurfaceType, string> = {
+export const SURFACES: Record<string, string> = {
   rubber: 'Резиновое',
   asphalt: 'Асфальт',
   artificial_turf: 'Искусственный газон',
+  artificial_grass: 'Искусственный газон',
   hard: 'Хард',
   parquet: 'Паркет',
+  acrylic: 'Акрил',
+  panoramic_glass_turf: 'Панорамное стекло / газон',
+  padel_turf: 'Падел-газон',
+  clay: 'Грунт',
+  tera_flex: 'Терафлекс',
 };
 
 // Покрытия, которые можно выбрать при добавлении дворовой площадки.
