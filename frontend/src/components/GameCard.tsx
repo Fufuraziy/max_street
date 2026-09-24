@@ -1,4 +1,4 @@
-import { CircleCheck, Clock, Crown, LogOut, MapPin, ShieldCheck, UserPlus, Wallet } from 'lucide-react';
+import { CircleCheck, Clock, Crown, LogOut, MapPin, ShieldCheck, UserPlus, Zap } from 'lucide-react';
 import { GAME_STATUS_STYLES, PAYMENT_STATUS_STYLES, SPORTS } from '../lib/constants';
 import {
   amountDue,

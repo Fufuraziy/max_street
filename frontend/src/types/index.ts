@@ -5,6 +5,7 @@ export type SportType =
   | 'table_tennis'
   | 'workout'
   | 'tennis'
+  | 'padel';
 export type SurfaceType =
   | 'rubber'
   | 'asphalt'
