@@ -383,28 +383,28 @@ async def _court_ids_by_title(session: AsyncSession) -> dict[str, int]:
 
 async def seed_courts(session: AsyncSession, spots: list[dict[str, Any]] = SPOTS_DATA) -> int:
     """Синхронизирует споты из SPOTS_DATA в БД (удаляет старые споты из прошлых версий)."""
-    target_titles = {item["title"] for item in spots}
+    target_titles = [item["title"] for item in spots]
+    existing_courts = {c.title: c for c in (await session.scalars(select(Court))).all()}
 
     # Удаляем устаревшие корты не из актуального списка SPOTS_DATA
-    old_courts = (await session.scalars(select(Court).where(Court.title.not_in(target_titles)))).all()
-    if old_courts:
-        for old in old_courts:
-            await session.delete(old)
-        await session.commit()
-        logger.info("Удалено устаревших площадок: %s", len(old_courts))
+    for title, old_court in list(existing_courts.items()):
+        if title not in target_titles:
+            await session.delete(old_court)
+            del existing_courts[title]
+    if len(existing_courts) != len(target_titles):
+        await session.flush()
 
-    existing_map = {c.title: c for c in (await session.scalars(select(Court))).all()}
     created_count = 0
-
     for item in spots:
         norm = _normalize_court(item)
-        if norm["title"] in existing_map:
-            # Обновляем свойства существующей площадки
-            court = existing_map[norm["title"]]
+        if norm["title"] in existing_courts:
+            court = existing_courts[norm["title"]]
             for k, v in norm.items():
                 setattr(court, k, v)
         else:
-            session.add(Court(**norm))
+            court = Court(**norm)
+            session.add(court)
+            existing_courts[norm["title"]] = court
             created_count += 1
 
     await session.commit()
@@ -508,20 +508,23 @@ async def seed_demo_escrow_games(session: AsyncSession) -> int:
     target_day = _resolve_demo_slot_date()
     wanted_time = datetime.combine(target_day, _parse_time("19:30"), tzinfo=settings.tz)
 
-    # Ищем подходящий слот на 19:30 (или ближайший свободный)
-    slot = await session.scalar(
-        select(CourtSlot)
-        .where(
-            CourtSlot.court_id == court_id,
-            CourtSlot.start_time >= utcnow() + SLOT_MIN_LEAD + timedelta(hours=1),
-            CourtSlot.is_booked.is_(False),
+    candidates = (
+        await session.scalars(
+            select(CourtSlot)
+            .where(
+                CourtSlot.court_id == court_id,
+                CourtSlot.start_time >= utcnow() + SLOT_MIN_LEAD + timedelta(hours=1),
+                CourtSlot.is_booked.is_(False),
+            )
+            .order_by(CourtSlot.start_time)
         )
-        .order_by(func.abs(func.extract("epoch", CourtSlot.start_time - wanted_time)))
-    )
+    ).all()
 
-    if slot is None:
+    if not candidates:
         logger.warning("Свободный слот для лобби Safe Split на «%s» не найден", court_title)
         return 0
+
+    slot = min(candidates, key=lambda s: abs((s.start_time - wanted_time).total_seconds()))
 
     # Убеждаемся, что цена слота ровно 3000 ₽
     if slot.price != Decimal("3000.00"):
@@ -554,7 +557,7 @@ async def seed_demo_escrow_games(session: AsyncSession) -> int:
 
         # Все 5 участников оплачивают свою долю (5 * 500 = 2500 ₽)
         for identity in identities:
-            await escrow.pay_share(session, game.id, identity, Decimal("500.00"))
+            await escrow.pay_share(session, game.id, identity, None)
 
         logger.info(
             "Создано Safe Split лобби 5/6: сбор #%s на «%s», собрано 2500/3000 ₽",
