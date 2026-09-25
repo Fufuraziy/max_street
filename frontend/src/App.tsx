@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { CalendarDays, LocateFixed, MapPinPlus, RefreshCw } from 'lucide-react';
-import { api, errorMessage } from './api/client';
+import { api, errorMessage, spotsService } from './api/client';
 import AddCourtModal from './components/AddCourtModal';
 import CourtDetailsSheet from './components/CourtDetailsSheet';
 import CreateGameModal from './components/CreateGameModal';
@@ -84,6 +84,13 @@ export default function App() {
     if (kind !== 'info') hapticNotify(kind === 'success' ? 'success' : 'error');
   }, []);
   const hideToast = useCallback(() => setToast(null), []);
+
+  useEffect(() => {
+    const unsubscribe = spotsService.subscribeFallback((_, msg) => {
+      notify(msg, 'info');
+    });
+    return unsubscribe;
+  }, [notify]);
 
   // --- Данные ---------------------------------------------------------------------
 
@@ -607,8 +614,8 @@ export default function App() {
           onCreateGame={() => withIdentity(() => setModal('create-game'))}
           onReportDefect={() => setModal('report-defect')}
           onJoin={joinGame}
-          onLeave={(gameId) => void leaveGame(gameId)}
-          onPay={(game) => openPay(game, selectedCourt.title)}
+          onLeave={(gameId: number) => void leaveGame(gameId)}
+          onPay={(game: Game) => openPay(game, selectedCourt.title)}
           onQuickSimulatePay={simulateQuickPay}
           onRoute={() => openExternalLink(routeUrl(selectedCourt.latitude, selectedCourt.longitude))}
           onShare={() => void shareCourt(selectedCourt)}

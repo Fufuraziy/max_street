@@ -73,7 +73,14 @@ export function isInsideMax(): boolean {
 }
 
 export function getInitData(): string {
-  return webApp()?.initData ?? '';
+  const fromBridge = webApp()?.initData;
+  if (fromBridge) return fromBridge;
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    return params.get('initData') || params.get('tgWebAppData') || hashParams.get('tgWebAppData') || hashParams.get('initData') || '';
+  }
+  return '';
 }
 
 /** start_param из deep link https://max.ru/<bot>?startapp=court_12 или ?court=12 в браузере. */
@@ -86,8 +93,9 @@ export function getStartParam(): string | null {
     if (typeof value === 'string' && value) return value;
   }
   const params = new URLSearchParams(window.location.search);
-  const court = params.get('court');
-  return params.get('startapp') ?? (court ? `court_${court}` : null);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const court = params.get('court') || hashParams.get('court');
+  return params.get('startapp') ?? hashParams.get('startapp') ?? (court ? `court_${court}` : null);
 }
 
 export function getStartCourtId(): number | null {
@@ -128,11 +136,93 @@ function ensureGuest(): GuestProfile {
   return profile;
 }
 
+function parseUserFromUrl(): Identity | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+    // Проверяем initData / tgWebAppData в search и hash
+    const rawInitData =
+      searchParams.get('initData') ||
+      searchParams.get('tgWebAppData') ||
+      hashParams.get('tgWebAppData') ||
+      hashParams.get('initData');
+    if (rawInitData) {
+      const initParsed = new URLSearchParams(rawInitData);
+      const rawUser = initParsed.get('user');
+      if (rawUser) {
+        try {
+          const userObj = JSON.parse(rawUser) as {
+            id?: number | string;
+            first_name?: string;
+            last_name?: string;
+            username?: string;
+          };
+          if (userObj && userObj.id) {
+            const name =
+              [userObj.first_name, userObj.last_name].filter(Boolean).join(' ') ||
+              userObj.username ||
+              `Пользователь #${userObj.id}`;
+            const identity: Identity = {
+              maxUserId: String(userObj.id),
+              name,
+              username: userObj.username ?? null,
+              isGuest: false,
+            };
+            writeGuest({ id: identity.maxUserId, name: identity.name });
+            return identity;
+          }
+        } catch {
+          /* игнорируем повреждённый JSON */
+        }
+      }
+    }
+
+    // Проверяем прямые URL-параметры (user_id, userId, id, name, user_name, username)
+    const directId =
+      searchParams.get('user_id') ||
+      searchParams.get('userId') ||
+      searchParams.get('id') ||
+      hashParams.get('user_id') ||
+      hashParams.get('userId') ||
+      hashParams.get('id');
+    if (directId) {
+      const rawName =
+        searchParams.get('user_name') ||
+        searchParams.get('userName') ||
+        searchParams.get('name') ||
+        searchParams.get('first_name') ||
+        hashParams.get('name') ||
+        hashParams.get('user_name');
+      const directUsername = searchParams.get('username') || hashParams.get('username') || null;
+      const cleanName = rawName ? decodeURIComponent(rawName).trim() : directUsername || `Пользователь #${directId}`;
+      const identity: Identity = {
+        maxUserId: String(directId),
+        name: cleanName,
+        username: directUsername,
+        isGuest: false,
+      };
+      writeGuest({ id: identity.maxUserId, name: identity.name });
+      return identity;
+    }
+  } catch {
+    /* безопасность при сбоях парсинга URL */
+  }
+
+  return null;
+}
+
 export function getIdentity(): Identity {
   const user = webApp()?.initDataUnsafe?.user;
   if (user?.id) {
     const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Игрок MAX';
     return { maxUserId: String(user.id), name, username: user.username ?? null, isGuest: false };
+  }
+  const fromUrl = parseUserFromUrl();
+  if (fromUrl) {
+    return fromUrl;
   }
   const guest = ensureGuest();
   return { maxUserId: guest.id, name: guest.name, username: null, isGuest: true };

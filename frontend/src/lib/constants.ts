@@ -170,5 +170,5 @@ export const PAYMENT_STATUS_STYLES: Record<PaymentStatus, string> = {
   refunded: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
 };
 
-export const SPB_CENTER: [number, number] = [59.9386, 30.3141];
+export const SPB_CENTER: [number, number] = [59.9343, 30.3351];
 export const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';

@@ -7,9 +7,9 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Header, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -131,7 +131,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -151,6 +151,17 @@ async def validation_error_handler(_: Request, exc: RequestValidationError) -> J
 app.include_router(api_router)
 
 
+@app.post("/webhook", tags=["Бот MAX"], summary="Входящие события MAX Bot API (корневой эндпоинт)")
+async def root_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    x_max_bot_api_secret: Annotated[str | None, Header()] = None,
+) -> dict[str, Any]:
+    """Корневой алиас вебхука MAX Bot API."""
+    from api.v1.bot_webhook import max_webhook
+    return await max_webhook(request, background_tasks, x_max_bot_api_secret)
+
+
 @app.get("/api/health", tags=["Служебное"], summary="Проверка работоспособности")
 async def health() -> JSONResponse:
     try:
@@ -165,3 +176,4 @@ async def health() -> JSONResponse:
 @app.get("/", include_in_schema=False)
 async def root() -> RedirectResponse:
     return RedirectResponse(url="/api/docs")
+
