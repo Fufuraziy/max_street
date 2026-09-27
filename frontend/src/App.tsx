@@ -456,7 +456,7 @@ export default function App() {
     async (court: Court) => {
       const link = botInfo?.username
         ? `https://max.ru/${botInfo.username}?startapp=court_${court.id}`
-        : `${window.location.origin}/?court=${court.id}`;
+        : `${window.location.origin}${import.meta.env.BASE_URL}?court=${court.id}`;
       const result = await shareLink(`${court.title}: площадка в MAX Стрит`, link);
       if (result === 'copied') notify('Ссылка скопирована', 'success');
       else if (result === 'failed') notify('Не удалось поделиться ссылкой', 'error');
@@ -513,7 +513,7 @@ export default function App() {
       <div className="pt-safe pointer-events-none absolute inset-x-0 top-0 z-[1100]">
         <div className="pointer-events-auto mx-3 flex items-center gap-2 md:max-w-[420px]">
           <div className="glass flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-3 py-2 shadow-float">
-            <img src="/favicon.svg" alt="" className="h-9 w-9 shrink-0 rounded-xl" />
+            <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-9 w-9 shrink-0 rounded-xl" />
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-[15px] font-bold leading-tight">MAX Стрит</h1>
               <p className="truncate text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>

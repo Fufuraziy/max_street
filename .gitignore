@@ -16,6 +16,7 @@ venv/
 node_modules/
 frontend/dist/
 .vite/
+.wrangler/
 npm-debug.log*
 
 # IDE и системные файлы
