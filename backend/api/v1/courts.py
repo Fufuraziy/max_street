@@ -18,7 +18,7 @@ from schemas.slot import SlotRead
 from services import courts as court_service
 from services.mock_booking_provider import booking_provider
 
-router = APIRouter(prefix="/courts", tags=["Площадки"])
+router = APIRouter(tags=["Площадки"])
 
 SLOTS_HORIZON_DAYS = 30
 
@@ -30,7 +30,8 @@ def to_court_read(court: Court, active_games_today: int, price_from: Decimal | N
     return data
 
 
-@router.get("", response_model=list[CourtRead], summary="Список площадок с фильтрами")
+@router.get("/courts", response_model=list[CourtRead], summary="Список площадок с фильтрами")
+@router.get("/spots", response_model=list[CourtRead], summary="Список спотов с фильтрами (алиас /spots)")
 async def list_courts(
     session: SessionDep,
     sport_type: SportType | None = None,
@@ -61,7 +62,8 @@ async def list_courts(
     return [to_court_read(item.court, item.active_games_today, item.price_from) for item in items]
 
 
-@router.get("/{court_id}", response_model=CourtDetail, summary="Карточка площадки")
+@router.get("/courts/{court_id}", response_model=CourtDetail, summary="Карточка площадки")
+@router.get("/spots/{court_id}", response_model=CourtDetail, summary="Карточка спота (алиас /spots)")
 async def get_court(court_id: int, session: SessionDep) -> CourtDetail:
     """Полная информация о площадке, активные лобби и зафиксированные неисправности."""
     details = await court_service.get_court_details(session, court_id)
@@ -73,7 +75,8 @@ async def get_court(court_id: int, session: SessionDep) -> CourtDetail:
     )
 
 
-@router.get("/{court_id}/slots", response_model=list[SlotRead], summary="Расписание аренды на дату")
+@router.get("/courts/{court_id}/slots", response_model=list[SlotRead], summary="Расписание аренды на дату")
+@router.get("/spots/{court_id}/slots", response_model=list[SlotRead], summary="Расписание аренды спота на дату (алиас /spots)")
 async def list_slots(
     court_id: int,
     session: SessionDep,
@@ -108,7 +111,8 @@ async def list_slots(
     ]
 
 
-@router.post("", response_model=CourtRead, status_code=201, summary="Добавить площадку (краудсорсинг)")
+@router.post("/courts", response_model=CourtRead, status_code=201, summary="Добавить площадку (краудсорсинг)")
+@router.post("/spots", response_model=CourtRead, status_code=201, summary="Добавить спот (алиас /spots)")
 async def create_court(payload: CourtCreate, session: SessionDep) -> CourtRead:
     court = await court_service.create_court(session, payload)
     return to_court_read(court, 0)

@@ -88,6 +88,14 @@ class SpotsService {
     }
   }
 
+  async listSpots(params: { sport_type?: SportType } = {}): Promise<Court[]> {
+    return this.listCourts(params);
+  }
+
+  async getSpot(id: number): Promise<CourtDetail> {
+    return this.getCourt(id);
+  }
+
   async getSlots(courtId: number, date: string): Promise<Slot[]> {
     try {
       return await rawRequest<Slot[]>(`/courts/${courtId}/slots`, { query: { date } });

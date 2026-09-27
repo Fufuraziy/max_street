@@ -28,12 +28,50 @@ function extractMessage(data: unknown): string | null {
   return null;
 }
 
+function normalizeBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, '');
+  if (!trimmed) {
+    return '/api/v1';
+  }
+  try {
+    if (/^https?:\/\//i.test(trimmed)) {
+      const parsed = new URL(trimmed);
+      const path = parsed.pathname.replace(/\/+$/, '');
+      if (!path || path === '') {
+        parsed.pathname = '/api/v1';
+        return parsed.toString().replace(/\/+$/, '');
+      }
+      if (path === '/api') {
+        parsed.pathname = '/api/v1';
+        return parsed.toString().replace(/\/+$/, '');
+      }
+      return trimmed;
+    }
+  } catch {
+    // fallback if URL constructor fails
+  }
+
+  if (trimmed === '/' || trimmed === '') return '/api/v1';
+  if (trimmed === '/api') return '/api/v1';
+  return trimmed;
+}
+
 function buildUrl(path: string, query?: Query): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const baseIsAbsolute = /^https?:\/\//i.test(RAW_API_BASE);
+  const base = normalizeBaseUrl(RAW_API_BASE);
+  const baseIsAbsolute = /^https?:\/\//i.test(base);
+
+  // Предотвращаем дублирование префиксов /api или /api/v1
+  let cleanPath = normalizedPath;
+  if (base.endsWith('/api/v1') && cleanPath.startsWith('/api/v1/')) {
+    cleanPath = cleanPath.slice('/api/v1'.length);
+  } else if (base.endsWith('/api') && cleanPath.startsWith('/api/')) {
+    cleanPath = cleanPath.slice('/api'.length);
+  }
+
   const url = baseIsAbsolute
-    ? new URL(RAW_API_BASE.replace(/\/+$/, '') + normalizedPath)
-    : new URL(RAW_API_BASE.replace(/\/+$/, '') + normalizedPath, window.location.origin);
+    ? new URL(base.replace(/\/+$/, '') + cleanPath)
+    : new URL(base.replace(/\/+$/, '') + cleanPath, window.location.origin);
 
   Object.entries(query ?? {}).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
