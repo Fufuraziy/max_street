@@ -109,6 +109,12 @@ SURFACE_LABELS: dict[str, str] = {
     SurfaceType.ARTIFICIAL_TURF: "искусственный газон",
     SurfaceType.HARD: "хард",
     SurfaceType.PARQUET: "паркет",
+    "acrylic": "акрил",
+    "artificial_grass": "искусственный газон",
+    "panoramic_glass_turf": "панорамное стекло / газон",
+    "padel_turf": "падел-газон",
+    "clay": "грунт",
+    "tera_flex": "терафлекс",
 }
 
 GAME_STATUS_LABELS: dict[str, str] = {

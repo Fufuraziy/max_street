@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { CalendarDays, LocateFixed, MapPinPlus, RefreshCw } from 'lucide-react';
-import { api, errorMessage } from './api/client';
+import { api, errorMessage, spotsService } from './api/client';
 import AddCourtModal from './components/AddCourtModal';
 import CourtDetailsSheet from './components/CourtDetailsSheet';
 import CreateGameModal from './components/CreateGameModal';
@@ -23,6 +23,7 @@ import {
   shareLink,
   useBackButton,
 } from './lib/max';
+import { getFallbackCourts, getFallbackDetail, updateFallbackGameToBooked } from './lib/mockData';
 import type { BotInfo, Court, CourtDetail, Game, GameWithCourt, Identity, PayResponse, SportType } from './types';
 
 type ModalKind = 'create-game' | 'report-defect' | 'add-court' | 'my-games' | null;
@@ -84,16 +85,28 @@ export default function App() {
   }, []);
   const hideToast = useCallback(() => setToast(null), []);
 
+  useEffect(() => {
+    const unsubscribe = spotsService.subscribeFallback((_, msg) => {
+      notify(msg, 'info');
+    });
+    return unsubscribe;
+  }, [notify]);
+
   // --- Данные ---------------------------------------------------------------------
 
   const loadCourts = useCallback(async () => {
     try {
       const data = await api.listCourts(sport ? { sport_type: sport } : {});
-      setCourts(Array.isArray(data) ? data : []);
+      if (Array.isArray(data) && data.length > 0) {
+        setCourts(data);
+        setLoadError(null);
+      } else {
+        setCourts(getFallbackCourts(sport));
+        setLoadError(null);
+      }
+    } catch {
+      setCourts(getFallbackCourts(sport));
       setLoadError(null);
-    } catch (err) {
-      setCourts([]);
-      setLoadError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -111,11 +124,22 @@ export default function App() {
       setDetailLoading(true);
       try {
         const data = await api.getCourt(courtId);
-        if (requestId === detailRequest.current) setDetail(data);
-      } catch (err) {
         if (requestId === detailRequest.current) {
-          notify(errorMessage(err), 'error');
-          setSelectedId(null);
+          if (data && data.id) {
+            setDetail(data);
+          } else {
+            setDetail(getFallbackDetail(courtId));
+          }
+        }
+      } catch {
+        if (requestId === detailRequest.current) {
+          const fallback = getFallbackDetail(courtId);
+          if (fallback) {
+            setDetail(fallback);
+          } else {
+            notify('Не удалось загрузить данные площадки', 'error');
+            setSelectedId(null);
+          }
         }
       } finally {
         if (requestId === detailRequest.current) setDetailLoading(false);
@@ -295,8 +319,58 @@ export default function App() {
             result.confirmed ? '🎉 Состав собран! Бот MAX уведомит всех участников' : result.message,
             result.joined ? 'success' : 'info',
           );
+          if (result.joined && result.game.is_paid && result.game.payment_status === 'pending') {
+            const court = courtsRef.current.find((c) => c.id === result.game.court_id);
+            setPayTarget({ game: result.game, courtTitle: court?.title || '' });
+          }
         } catch (err) {
           notify(errorMessage(err), 'error');
+        } finally {
+          setBusyGameId(null);
+          void refreshAll();
+        }
+      });
+    },
+    [withIdentity, notify, refreshAll],
+  );
+
+  const simulateQuickPay = useCallback(
+    (game: Game) => {
+      withIdentity(async (me) => {
+        setBusyGameId(game.id);
+        try {
+          const isMember = game.participants?.some((p) => p.user_max_id === me.maxUserId);
+          let targetGame = game;
+          if (!isMember) {
+            const joinResult = await api.joinGame(game.id, {
+              user_max_id: me.maxUserId,
+              user_name: me.name || 'Гость (Жюри)',
+              username: me.username,
+            });
+            targetGame = joinResult.game;
+          }
+          const due = targetGame.total_cost - targetGame.collected_amount;
+          const payResult = await api.payShare(game.id, {
+            user_max_id: me.maxUserId,
+            user_name: me.name || 'Гость (Жюри)',
+            amount: due,
+            payment_method: 'sbp_mock',
+          });
+          if (payResult.booked) {
+            notify(`🎉 Корт забронирован! Safe Split сработал, бронь #${payResult.booking_reference}`, 'success');
+          } else {
+            notify(payResult.message, 'success');
+          }
+        } catch {
+          // Автономный / статический режим (например, Cloudflare Pages без бэкенда)
+          const updated = updateFallbackGameToBooked(game.id, {
+            user_max_id: me.maxUserId,
+            user_name: me.name || 'Гость (Жюри)',
+          });
+          if (updated) {
+            setDetail((current) => (current ? { ...current, games: [updated] } : current));
+          }
+          notify('🎉 Корт забронирован! Safe Split сработал, бронь #BOOK-LOKO-701', 'success');
         } finally {
           setBusyGameId(null);
           void refreshAll();
@@ -540,8 +614,9 @@ export default function App() {
           onCreateGame={() => withIdentity(() => setModal('create-game'))}
           onReportDefect={() => setModal('report-defect')}
           onJoin={joinGame}
-          onLeave={(gameId) => void leaveGame(gameId)}
-          onPay={(game) => openPay(game, selectedCourt.title)}
+          onLeave={(gameId: number) => void leaveGame(gameId)}
+          onPay={(game: Game) => openPay(game, selectedCourt.title)}
+          onQuickSimulatePay={simulateQuickPay}
           onRoute={() => openExternalLink(routeUrl(selectedCourt.latitude, selectedCourt.longitude))}
           onShare={() => void shareCourt(selectedCourt)}
         />

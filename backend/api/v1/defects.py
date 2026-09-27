@@ -18,6 +18,12 @@ router = APIRouter(tags=["Поломки"])
     status_code=201,
     summary="Сообщить о неисправности",
 )
+@router.post(
+    "/spots/{court_id}/defects",
+    response_model=DefectRead,
+    status_code=201,
+    summary="Сообщить о неисправности спота (алиас /spots)",
+)
 async def report_defect(
     court_id: int,
     payload: DefectCreate,

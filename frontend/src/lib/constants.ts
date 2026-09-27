@@ -100,7 +100,19 @@ export const SPORTS: Record<SportType, SportMeta> = {
     ],
     defaultPlayers: 4,
   },
-};
+  multisport: {
+    label: 'Мультиспорт',
+    short: 'Мультиспорт',
+    emoji: '🏅',
+    color: '#8B5CF6',
+    formats: [
+      { label: 'Вдвоём', players: 2 },
+      { label: 'Группа 4', players: 4 },
+      { label: 'Группа 6', players: 6 },
+    ],
+    defaultPlayers: 4,
+  },
+} as Record<string, SportMeta>;
 
 export const SPORT_ORDER: SportType[] = [
   'basketball',
@@ -112,12 +124,18 @@ export const SPORT_ORDER: SportType[] = [
   'workout',
 ];
 
-export const SURFACES: Record<SurfaceType, string> = {
+export const SURFACES: Record<string, string> = {
   rubber: 'Резиновое',
   asphalt: 'Асфальт',
   artificial_turf: 'Искусственный газон',
+  artificial_grass: 'Искусственный газон',
   hard: 'Хард',
   parquet: 'Паркет',
+  acrylic: 'Акрил',
+  panoramic_glass_turf: 'Панорамное стекло / газон',
+  padel_turf: 'Падел-газон',
+  clay: 'Грунт',
+  tera_flex: 'Терафлекс',
 };
 
 // Покрытия, которые можно выбрать при добавлении дворовой площадки.
@@ -152,5 +170,5 @@ export const PAYMENT_STATUS_STYLES: Record<PaymentStatus, string> = {
   refunded: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
 };
 
-export const SPB_CENTER: [number, number] = [59.9386, 30.3141];
+export const SPB_CENTER: [number, number] = [59.9343, 30.3351];
 export const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
