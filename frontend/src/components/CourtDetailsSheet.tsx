@@ -28,6 +28,7 @@ import {
   hexToRgba,
   timeAgo,
 } from '../lib/format';
+import { reviewsStore, type CourtReview } from '../lib/reviewsStore';
 import type { Court, CourtDetail, Defect, Game, Identity } from '../types';
 import GameCard from './GameCard';
 import { IconButton, SectionTitle } from './ui';
@@ -42,6 +43,7 @@ interface CourtDetailsSheetProps {
   onClose: () => void;
   onCreateGame: () => void;
   onReportDefect: () => void;
+  onAddReview: () => void;
   onJoin: (gameId: number) => void;
   onLeave: (gameId: number) => void;
   onPay: (game: Game) => void;
@@ -50,6 +52,7 @@ interface CourtDetailsSheetProps {
   onShare: () => void;
   onNotify?: (message: string, kind?: 'info' | 'success' | 'error') => void;
   onGameUpdated?: (game: Game) => void;
+  reviewsVersion?: number;
 }
 
 function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
@@ -92,6 +95,7 @@ export default function CourtDetailsSheet({
   onClose,
   onCreateGame,
   onReportDefect,
+  onAddReview,
   onJoin,
   onLeave,
   onPay,
@@ -100,6 +104,7 @@ export default function CourtDetailsSheet({
   onShare,
   onNotify,
   onGameUpdated,
+  reviewsVersion = 0,
 }: CourtDetailsSheetProps) {
   const [expanded, setExpanded] = useState(false);
   const touchStartY = useRef<number | null>(null);
@@ -108,6 +113,12 @@ export default function CourtDetailsSheet({
   const defects = Array.isArray(detail?.defects) ? detail.defects : [];
   const openDefects = (defects || []).filter((d) => d.status !== 'resolved');
   const resolvedDefects = (defects || []).filter((d) => d.status === 'resolved');
+
+  const [reviews, setReviews] = useState<CourtReview[]>(() => reviewsStore.getCourtReviews(court.id));
+
+  useEffect(() => {
+    setReviews(reviewsStore.getCourtReviews(court.id));
+  }, [court.id, reviewsVersion]);
 
   const distance = userLocation
     ? calculateDistanceMeters(userLocation[0], userLocation[1], info.latitude, info.longitude)
@@ -151,6 +162,11 @@ export default function CourtDetailsSheet({
       setExpanded(true);
     }
   };
+
+  const averageRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : info.rating;
 
   return (
     <section
@@ -210,11 +226,25 @@ export default function CourtDetailsSheet({
             label="Освещение"
             value={info.has_lighting ? 'Есть' : 'Нет'}
           />
-          <InfoTile
-            icon={<Star className="h-5 w-5 text-amber-500" />}
-            label="Рейтинг"
-            value={info.rating > 0 ? info.rating.toFixed(1) : 'Новая'}
-          />
+          <div
+            onClick={onAddReview}
+            role="button"
+            className="flex items-center gap-3 rounded-2xl bg-white px-3 py-2.5 dark:bg-[#1C1E24] cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition active:scale-[0.98]"
+            title="Нажмите, чтобы оценить площадку"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500 dark:bg-amber-400/10 dark:text-amber-400">
+              <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="block text-xs text-slate-500 dark:text-slate-400">Рейтинг</span>
+                <span className="text-[10px] font-semibold text-accent hover:underline">+ отзыв</span>
+              </div>
+              <span className="block truncate text-sm font-semibold">
+                {averageRating > 0 ? `${averageRating.toFixed(1)} ⭐ (${reviews.length})` : 'Новая ⭐'}
+              </span>
+            </span>
+          </div>
           <InfoTile
             icon={info.is_indoor ? <Warehouse className="h-5 w-5" /> : <Trees className="h-5 w-5 text-emerald-600" />}
             label="Тип"
@@ -320,6 +350,68 @@ export default function CourtDetailsSheet({
           <Wrench className="h-5 w-5" />
           Сообщить о поломке
         </button>
+
+        <div className="mt-5 flex items-center justify-between">
+          <SectionTitle title="Отзывы игроков" count={reviews.length} />
+          <button
+            type="button"
+            className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+            onClick={onAddReview}
+          >
+            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+            Оставить отзыв
+          </button>
+        </div>
+
+        {reviews.length === 0 ? (
+          <div className="card mt-2 flex flex-col items-center py-5 text-center">
+            <Star className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+            <p className="mt-2 text-sm font-semibold">Пока нет отзывов</p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Были на этой площадке? Поделитесь впечатлениями первыми!
+            </p>
+            <button
+              type="button"
+              className="btn-secondary mt-3 text-xs py-1.5 px-3"
+              onClick={onAddReview}
+            >
+              Написать отзыв
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2 space-y-2 pb-2">
+            {reviews.map((rev) => (
+              <div key={rev.id} className="card p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{rev.authorName}</span>
+                    <span className="flex items-center text-xs font-bold text-amber-500">
+                      {'⭐'.repeat(rev.rating)}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">{timeAgo(rev.createdAt)}</span>
+                </div>
+                {rev.text && (
+                  <p className="mt-1.5 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {rev.text}
+                  </p>
+                )}
+                {rev.tags && rev.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {rev.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-lg bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-white/10 dark:text-slate-300"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

@@ -4,6 +4,8 @@ import { CalendarDays, Clock, LocateFixed, MapPinPlus, RefreshCw } from 'lucide-
 import { api, errorMessage, spotsService } from './api/client';
 import { weatherService, type WeatherInfo } from './api/weatherService';
 import AddCourtModal from './components/AddCourtModal';
+import AddReviewModal from './components/AddReviewModal';
+import { reviewsStore } from './lib/reviewsStore';
 
 function formatCurrentDateTime(d: Date): string {
   const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -38,7 +40,7 @@ import {
 import { getFallbackCourts, getFallbackDetail, updateFallbackGameToBooked } from './lib/mockData';
 import type { BotInfo, Court, CourtDetail, Game, GameWithCourt, Identity, PayResponse, SportType } from './types';
 
-type ModalKind = 'create-game' | 'report-defect' | 'add-court' | 'my-games' | null;
+type ModalKind = 'create-game' | 'report-defect' | 'add-court' | 'my-games' | 'add-review' | null;
 type IdentityAction = (identity: Identity) => void;
 
 const COURTS_REFRESH_MS = 60_000;
@@ -87,6 +89,7 @@ export default function App() {
   const [sortByDistance, setSortByDistance] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [topWeather, setTopWeather] = useState<WeatherInfo | null>(null);
+  const [reviewsVersion, setReviewsVersion] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 10_000);
@@ -693,10 +696,26 @@ export default function App() {
           onShare={() => void shareCourt(selectedCourt)}
           onNotify={notify}
           onGameUpdated={handleGameUpdated}
+          onAddReview={() => setModal('add-review')}
+          reviewsVersion={reviewsVersion}
         />
       )}
 
       {pickMode && <PickLocationOverlay onCancel={() => setPickMode(false)} onConfirm={confirmPick} />}
+
+      {modal === 'add-review' && selectedCourt && (
+        <AddReviewModal
+          courtTitle={selectedCourt.title}
+          authorName={identity.name || ''}
+          onClose={() => setModal(null)}
+          onSubmit={(data) => {
+            reviewsStore.addReview(selectedCourt.id, data);
+            setReviewsVersion((v) => v + 1);
+            setModal(null);
+            notify(`⭐ Спасибо за отзыв! Ваша оценка (${data.rating}/5) сохранена`, 'success');
+          }}
+        />
+      )}
 
       {modal === 'create-game' && selectedCourt && (
         <CreateGameModal
