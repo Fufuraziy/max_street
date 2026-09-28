@@ -5,7 +5,7 @@
     "frontend"
   ],
   "scripts": {
-    "build": "npm run --prefix frontend build",
+    "build": "npm run --prefix frontend build && node -e \"const fs=require('fs'); fs.cpSync('frontend/dist', 'dist', {recursive:true});\"",
     "typecheck": "npm run --prefix frontend typecheck"
   }
 }

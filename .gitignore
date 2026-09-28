@@ -14,6 +14,7 @@ venv/
 
 # Node / Vite
 node_modules/
+dist/
 frontend/dist/
 .vite/
 .wrangler/
