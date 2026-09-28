@@ -55,6 +55,7 @@ class ParticipantRead(BaseModel):
 
     user_max_id: str
     user_name: str
+    reliability_score: float = 100.0
     joined_at: datetime
     has_paid: bool = False
     paid_amount: Money = ZERO

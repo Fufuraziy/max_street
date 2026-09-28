@@ -51,6 +51,10 @@ function EscrowPanel({ game }: { game: Game }) {
         <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
           <ShieldCheck className="h-4 w-4 shrink-0" />
           🛡️ Безопасный сбор MAX Escrow
+          <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-200/60 px-1.5 py-0.2 text-[10px] font-medium text-emerald-900 dark:bg-emerald-400/20 dark:text-emerald-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Live
+          </span>
         </span>
         <span className="shrink-0 whitespace-nowrap rounded-md bg-white/80 px-1.5 py-0.5 font-mono text-[11px] text-emerald-700 dark:bg-white/10 dark:text-emerald-300">
           #{game.escrow_account_id}
@@ -171,8 +175,16 @@ export default function GameCard({
             <li key={participant.user_max_id} className="flex items-center justify-between gap-2 text-sm">
               <span className="flex min-w-0 items-center gap-2">
                 <Avatar participant={participant} />
-                <span className="truncate">
-                  {participant.user_name}
+                <span className="truncate flex items-center gap-1.5">
+                  <span className="truncate">{participant.user_name}</span>
+                  {participant.reliability_score !== undefined && (
+                    <span
+                      className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-100 dark:bg-emerald-400/15 dark:text-emerald-300"
+                      title={`Надёжность игрока: ${Math.round(participant.reliability_score)}% посещаемости игр`}
+                    >
+                      {Math.round(participant.reliability_score)}%
+                    </span>
+                  )}
                   {participant.user_max_id === game.creator_max_id && (
                     <span className="text-slate-400"> (Организатор)</span>
                   )}

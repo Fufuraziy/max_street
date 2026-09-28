@@ -86,6 +86,45 @@ export function routeUrl(lat: number, lon: number): string {
   return `https://yandex.ru/maps/?rtext=~${lat.toFixed(6)},${lon.toFixed(6)}&rtt=pd`;
 }
 
+/** Расчёт расстояния между двумя координатами по формуле Haversine (в метрах). */
+export function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const rad = Math.PI / 180;
+  const phi1 = lat1 * rad;
+  const phi2 = lat2 * rad;
+  const deltaPhi = (lat2 - lat1) * rad;
+  const deltaLambda = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+/** 350 → «350 м», 1400 → «1,4 км». */
+export function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters / 10) * 10} м`;
+  return `${(meters / 1000).toFixed(1).replace('.', ',')} км`;
+}
+
+/** Форматирование текста официального обращения для портала «Наш Санкт-Петербург» / Госуслуг. */
+export function formatOfficialAppealText(courtTitle: string, address: string, defectLabel: string, description: string): string {
+  const now = new Date();
+  const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
+  return `В Администрацию района / Комитет по благоустройству Санкт-Петербурга
+Портал «Наш Санкт-Петербург» / Сервис «Госуслуги. Решаем вместе»
+
+ЗАЯВЛЕНИЕ О ДЕФЕКТЕ СПОРТИВНОЙ ИНФРАСТРУКТУРЫ
+(Зафиксировано через сервис «MAX Спот»)
+
+1. Объект: ${courtTitle}
+2. Адрес расположения: ${address}
+3. Обнаруженная неисправность: ${defectLabel}
+${description ? `4. Подробное описание: ${description}\n` : ''}5. Дата фиксации: ${dateStr}
+
+Прошу провести выездную инспекцию спортивного объекта и устранить выявленные дефекты в сроки, установленные регламентом содержания объектов физической культуры и спорта.`;
+}
+
 const rubFormatter = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
 
 /** 1800 → «1 800 ₽», 583.33 → «583,33 ₽». */

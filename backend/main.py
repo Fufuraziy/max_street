@@ -83,13 +83,28 @@ def _validation_message(error: dict[str, Any]) -> str:
 
 
 async def escrow_watchdog() -> None:
-    """Фоновая проверка дедлайнов эскроу-сборов: не набравшим сумму — автоматический возврат средств."""
+    """Фоновая проверка дедлайнов эскроу-сборов: не набравшим сумму — автоматический возврат средств.
+
+    Использует PostgreSQL Advisory Lock для безопасной работы при нескольких воркерах Uvicorn.
+    """
     while True:
         try:
             async with SessionLocal() as session:
-                expired = await escrow.expire_overdue(session)
-            for game_id, refunds in expired:
-                await bot_service.notify_refund(game_id, refunds, "deadline")
+                has_lock = True
+                try:
+                    lock_res = await session.execute(text("SELECT pg_try_advisory_lock(1296123987)"))
+                    has_lock = bool(lock_res.scalar())
+                except Exception:
+                    has_lock = True
+
+                if has_lock:
+                    try:
+                        expired = await escrow.expire_overdue(session)
+                        for game_id, refunds in expired:
+                            await bot_service.notify_refund(game_id, refunds, "deadline")
+                    finally:
+                        with contextlib.suppress(Exception):
+                            await session.execute(text("SELECT pg_advisory_unlock(1296123987)"))
         except asyncio.CancelledError:
             raise
         except Exception:  # noqa: BLE001 - сторож не должен падать

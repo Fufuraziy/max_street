@@ -56,7 +56,7 @@ function normalizeBaseUrl(raw: string): string {
   return trimmed;
 }
 
-function buildUrl(path: string, query?: Query): string {
+export function buildUrl(path: string, query?: Query): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const base = normalizeBaseUrl(RAW_API_BASE);
   const baseIsAbsolute = /^https?:\/\//i.test(base);

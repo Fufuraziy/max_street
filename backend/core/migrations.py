@@ -26,6 +26,10 @@ UPGRADE_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE game_participants ADD COLUMN IF NOT EXISTS has_paid BOOLEAN NOT NULL DEFAULT false",
     "ALTER TABLE game_participants ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(10, 2) NOT NULL DEFAULT 0",
     "ALTER TABLE game_participants ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE",
+    "ALTER TABLE game_participants ADD COLUMN IF NOT EXISTS reliability_score DOUBLE PRECISION NOT NULL DEFAULT 100.0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS reliability_score DOUBLE PRECISION NOT NULL DEFAULT 100.0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS games_attended INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS games_missed INTEGER NOT NULL DEFAULT 0",
     "CREATE INDEX IF NOT EXISTS ix_games_slot_id ON games (slot_id)",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_games_active_slot ON games (slot_id) "
     "WHERE slot_id IS NOT NULL AND status IN ('recruiting', 'confirmed', 'booked')",

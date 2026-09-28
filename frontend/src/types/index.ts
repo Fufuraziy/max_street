@@ -40,11 +40,13 @@ export interface Court {
   description: string;
   active_games_today: number;
   price_from: number | null;
+  distance_meters?: number;
 }
 
 export interface Participant {
   user_max_id: string;
   user_name: string;
+  reliability_score?: number;
   joined_at: string;
   has_paid: boolean;
   paid_amount: number;

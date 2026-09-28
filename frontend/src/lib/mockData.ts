@@ -274,6 +274,7 @@ const INITIAL_LOKO_GAME: Game = {
     {
       user_max_id: 'demo_jury_1',
       user_name: 'Артём',
+      reliability_score: 98,
       joined_at: new Date(Date.now() - 3600000).toISOString(),
       has_paid: true,
       paid_amount: 500,
@@ -282,6 +283,7 @@ const INITIAL_LOKO_GAME: Game = {
     {
       user_max_id: 'demo_jury_2',
       user_name: 'Михаил',
+      reliability_score: 95,
       joined_at: new Date(Date.now() - 3000000).toISOString(),
       has_paid: true,
       paid_amount: 500,
@@ -290,6 +292,7 @@ const INITIAL_LOKO_GAME: Game = {
     {
       user_max_id: 'demo_jury_3',
       user_name: 'Алексей',
+      reliability_score: 100,
       joined_at: new Date(Date.now() - 2400000).toISOString(),
       has_paid: true,
       paid_amount: 500,
@@ -298,6 +301,7 @@ const INITIAL_LOKO_GAME: Game = {
     {
       user_max_id: 'demo_jury_4',
       user_name: 'Денис',
+      reliability_score: 96,
       joined_at: new Date(Date.now() - 1800000).toISOString(),
       has_paid: true,
       paid_amount: 500,
@@ -306,6 +310,7 @@ const INITIAL_LOKO_GAME: Game = {
     {
       user_max_id: 'demo_jury_5',
       user_name: 'Илья',
+      reliability_score: 97,
       joined_at: new Date(Date.now() - 1200000).toISOString(),
       has_paid: true,
       paid_amount: 500,

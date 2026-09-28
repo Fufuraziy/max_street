@@ -28,6 +28,8 @@ from core.security import Identity
 from core.timeutils import utcnow
 from models import EscrowTransaction, Game, GameParticipant
 from models.enums import EscrowTxKind, GameStatus, PaymentStatus
+from schemas.game import GameWithCourt
+from services.event_bus import event_bus
 from services.game_queries import get_game, lock_game
 from services.mock_booking_provider import BookingError, BookingReceipt, booking_provider
 
@@ -189,8 +191,13 @@ async def pay_share(session: AsyncSession, game_id: int, payer: Identity, amount
         game.collected_amount,
         game.total_cost,
     )
+    updated = await get_game(session, game_id)
+    try:
+        await event_bus.publish(game_id, "game_updated", GameWithCourt.model_validate(updated).model_dump(mode="json"))
+    except Exception:
+        pass
     return PaymentResult(
-        game=await get_game(session, game_id),
+        game=updated,
         transaction=transaction,
         booked=booking is not None,
         booking=booking,
@@ -216,6 +223,12 @@ async def expire_overdue(session: AsyncSession) -> list[tuple[int, list[RefundIt
     result = [(game.id, await refund_game(session, game)) for game in overdue]
     if result:
         await session.commit()
+        for game_id, _ in result:
+            try:
+                g = await get_game(session, game_id)
+                await event_bus.publish(game_id, "game_updated", GameWithCourt.model_validate(g).model_dump(mode="json"))
+            except Exception:
+                pass
     return result
 
 
@@ -229,7 +242,12 @@ async def force_expire(session: AsyncSession, game_id: int) -> tuple[Game, list[
     game.payment_deadline = utcnow()
     refunds = await refund_game(session, game)
     await session.commit()
-    return await get_game(session, game_id), refunds
+    updated = await get_game(session, game_id)
+    try:
+        await event_bus.publish(game_id, "game_updated", GameWithCourt.model_validate(updated).model_dump(mode="json"))
+    except Exception:
+        pass
+    return updated, refunds
 
 
 async def statement(session: AsyncSession, game_id: int) -> tuple[Game, list[EscrowTransaction], Decimal]:
