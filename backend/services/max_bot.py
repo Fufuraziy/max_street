@@ -364,12 +364,41 @@ class MaxBotService:
             return None
         return f"https://max.ru/{self.bot_username}?startapp" + (f"={payload}" if payload else "")
 
-    def web_link(self, payload: str | None = None) -> str:
+    def web_link(
+        self,
+        payload: str | None = None,
+        identity: Identity | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
+    ) -> str:
+        from urllib.parse import quote
         court_id = parse_ref(payload or "", "court")
         base = self.cfg.public_miniapp_url.rstrip("/")
-        return f"{base}/?court={court_id}" if court_id else f"{base}/"
+        params: list[str] = []
+        if court_id:
+            params.append(f"court={court_id}")
+        elif payload:
+            params.append(f"startapp={payload}")
+        if identity and identity.max_user_id:
+            params.append(f"user_id={identity.max_user_id}")
+            if identity.name:
+                params.append(f"user_name={quote(identity.name)}")
+            if identity.username:
+                params.append(f"username={quote(identity.username)}")
+        if lat is not None and lon is not None:
+            params.append(f"lat={lat:.4f}")
+            params.append(f"lon={lon:.4f}")
+        query = ("?" + "&".join(params)) if params else ""
+        return f"{base}/{query}"
 
-    def app_button(self, text: str, payload: str | None = None) -> Button | None:
+    def app_button(
+        self,
+        text: str,
+        payload: str | None = None,
+        identity: Identity | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
+    ) -> Button | None:
         """Кнопка запуска мини-приложения: open_app, если известен бот, иначе ссылка."""
         if self._open_app_enabled and self.bot_username:
             button: Button = {"type": "open_app", "text": text, "web_app": self.bot_username}
@@ -380,7 +409,7 @@ class MaxBotService:
             return button
         url = self.deep_link(payload)
         if url is None:
-            url = self.web_link(payload)
+            url = self.web_link(payload, identity=identity, lat=lat, lon=lon)
             # MAX не принимает ссылки вида http://localhost — такую кнопку не отправляем.
             if self.client is not None and not url.startswith("https://"):
                 return None
@@ -729,7 +758,7 @@ class MaxBotService:
 
     def _welcome_view(self, identity: Identity) -> View:
         first_name = esc(identity.name.split()[0]) if identity.name.strip() else "друг"
-        miniapp_url = self.web_link()
+        miniapp_url = self.web_link(identity=identity)
         text = (
             f"👋 Привет, {first_name}!\n\n"
             "Добро пожаловать в <b>MAX Стрит</b> — находите спортплощадки Санкт-Петербурга, "
@@ -738,7 +767,7 @@ class MaxBotService:
             "Выберите нужное действие кнопками ниже 👇"
         )
         buttons = []
-        app_btn = self.app_button("🗺 Открыть карту площадок")
+        app_btn = self.app_button("🗺 Открыть карту площадок", identity=identity)
         if app_btn:
             buttons.append([app_btn])
         if not app_btn or app_btn.get("type") != "link":
@@ -979,7 +1008,7 @@ class MaxBotService:
             games_text = f"сборов сегодня: {games_today}" if games_today else "сегодня сборов нет"
             lines.append(f"{index}. <b>{esc(court.title)}</b> — {format_distance(distance)}\n      {icons} · {games_text}")
             buttons.append([cb(f"{index}. {court.title[:40]} · {format_distance(distance)}", f"court:{court.id}")])
-        buttons.append([self.app_button("🗺 Открыть карту"), cb("◀️ Назад в главное меню", "menu")])
+        buttons.append([self.app_button("🗺 Открыть карту", lat=lat, lon=lon), cb("◀️ Назад в главное меню", "menu")])
         return View("\n".join(lines), buttons)
 
     def _join_result_view(self, result: game_service.JoinResult, identity: Identity) -> View:

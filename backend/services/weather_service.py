@@ -45,18 +45,68 @@ def _translate_weather(raw_desc: str) -> tuple[str, str]:
     return (raw_desc, "⛅")
 
 
-def _fallback_weather(target_time: datetime | None = None) -> dict[str, Any]:
-    hour = target_time.hour if target_time else datetime.now().hour
-    # Базовые дневные/ночные реалистичные температуры для СПб
-    temp = 14 if 9 <= hour <= 21 else 9
+import math
+
+def _fallback_weather(target_time: datetime | None = None, lat: float = 59.9386, lon: float = 30.3141) -> dict[str, Any]:
+    d = target_time if target_time else datetime.now()
+    month = d.month  # 1..12
+    hour = d.hour    # 0..23
+
+    # Сезонные средние дневные / ночные температуры для Санкт-Петербурга
+    monthly_temps = {
+        1: (-4, -8), 2: (-3, -8), 3: (2, -4), 4: (9, 2),
+        5: (16, 7), 6: (20, 12), 7: (23, 15), 8: (21, 13),
+        9: (15, 8), 10: (8, 3), 11: (2, -2), 12: (-2, -5),
+    }
+    t_day, t_night = monthly_temps.get(month, (15, 8))
+
+    # Суточный синусоидальный ход (минимум в 5:00, максимум в 15:00)
+    hour_rad = ((hour - 5) / 24) * 2 * math.pi
+    diurnal = (math.sin(hour_rad - math.pi / 2) + 1) / 2
+    base_temp = t_night + (t_day - t_night) * diurnal
+
+    # Микроклимат по координатам (Крестовский остров/залив прохладнее)
+    loc_delta = math.sin(lat * 31.7 + lon * 19.3) * 1.5
+    temp_c = int(round(base_temp + loc_delta))
+    feels_like_c = temp_c - (2 if hour >= 19 or hour <= 7 else 1)
+
+    # Облачность и вероятность осадков детерминированы днём года и координатами
+    day_of_year = d.timetuple().tm_yday
+    seed = abs(math.sin(day_of_year * 7.13 + lat * 10 + lon * 5))
+
+    if seed > 0.72:
+        desc = "Кратковременный дождь"
+        icon = "🌦️"
+        rain_chance = int(40 + (seed - 0.72) * 100)
+        is_rain = True
+    elif seed > 0.45:
+        desc = "Переменная облачность"
+        icon = "⛅"
+        rain_chance = 15
+        is_rain = False
+    elif seed > 0.25:
+        desc = "Облачно с прояснениями"
+        icon = "🌤️"
+        rain_chance = 5
+        is_rain = False
+    else:
+        desc = "Ясно" if hour < 6 or hour > 21 else "Солнечно"
+        icon = "🌙" if hour < 6 or hour > 21 else "☀️"
+        rain_chance = 0
+        is_rain = False
+
+    sign = "+" if temp_c > 0 else ""
+    rain_note = f", вероятность осадков {rain_chance}%" if is_rain else ", без осадков"
+    summary = f"{sign}{temp_c}°C, {desc.lower()}{rain_note}"
+
     return {
-        "temp_c": temp,
-        "feels_like_c": temp - 1,
-        "description": "Переменная облачность",
-        "icon": "⛅",
-        "precipitation_chance": 10,
-        "is_rain": False,
-        "summary": f"+{temp}°C, переменная облачность, без осадков",
+        "temp_c": temp_c,
+        "feels_like_c": feels_like_c,
+        "description": desc,
+        "icon": icon,
+        "precipitation_chance": rain_chance,
+        "is_rain": is_rain,
+        "summary": summary,
         "location": "Санкт-Петербург",
     }
 
@@ -139,7 +189,7 @@ async def fetch_weather(lat: float, lon: float, target_time: datetime | None = N
     except Exception as exc:
         logger.debug("wttr.in weather fetch exception: %s", exc)
 
-    fallback = _fallback_weather(target_time)
+    fallback = _fallback_weather(target_time, lat=lat, lon=lon)
     _CACHE[cache_key] = (now_ts, fallback)
     return fallback
 
@@ -152,5 +202,5 @@ def get_forecast_summary_sync(lat: float, lon: float, target_time: datetime | No
     cache_key = f"{lat_r}:{lon_r}:{hour_key}"
     if cache_key in _CACHE:
         return _CACHE[cache_key][1]["summary"]
-    fallback = _fallback_weather(target_time)
+    fallback = _fallback_weather(target_time, lat=lat, lon=lon)
     return fallback["summary"]

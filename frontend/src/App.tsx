@@ -30,6 +30,7 @@ import { Spinner, Toast, type ToastState } from './components/ui';
 import { calculateDistanceMeters, plural, routeUrl } from './lib/format';
 import {
   getIdentity,
+  getInitialLocationFromUrl,
   getStartCourtId,
   hapticNotify,
   openExternalLink,
@@ -79,7 +80,7 @@ export default function App() {
   const [pickedPoint, setPickedPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [pendingAction, setPendingAction] = useState<IdentityAction | null>(null);
   const [busyGameId, setBusyGameId] = useState<number | null>(null);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(() => getInitialLocationFromUrl());
   const [locating, setLocating] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [botInfo, setBotInfo] = useState<BotInfo | null>(null);
@@ -288,6 +289,10 @@ export default function App() {
       selectCourt(startCourtId.current);
       return;
     }
+    if (userLocation) {
+      moveMap(map, userLocation, 14);
+      return;
+    }
     const bounds = L.latLngBounds(list.map((court) => [court.latitude, court.longitude] as [number, number]));
     const size = map.getSize();
     if (size.x > 0 && size.y > 0) {
@@ -295,7 +300,7 @@ export default function App() {
     } else {
       map.setView(bounds.getCenter(), 11, { animate: false });
     }
-  }, [map, courts, selectCourt]);
+  }, [map, courts, selectCourt, userLocation]);
 
   const handleMapClick = useCallback(() => {
     if (!pickMode) setSelectedId(null);
@@ -303,23 +308,44 @@ export default function App() {
 
   const locate = useCallback(() => {
     if (!navigator.geolocation) {
-      notify('Геолокация недоступна на этом устройстве', 'error');
+      notify('Геолокация недоступна на этом устройстве. Установлен центр СПб', 'info');
+      setUserLocation([59.9386, 30.3141]);
+      if (map) moveMap(map, [59.9386, 30.3141], 13);
       return;
     }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const point: [number, number] = [position.coords.latitude, position.coords.longitude];
-        setUserLocation(point);
-        if (map) moveMap(map, point, Math.max(map.getZoom() || 12, 14));
-        setLocating(false);
-      },
-      () => {
-        setLocating(false);
-        notify('Не удалось определить местоположение. Разрешите доступ к геопозиции', 'error');
-      },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
-    );
+
+    const onSuccess = (position: GeolocationPosition) => {
+      const point: [number, number] = [position.coords.latitude, position.coords.longitude];
+      setUserLocation(point);
+      if (map) moveMap(map, point, Math.max(map.getZoom() || 12, 14));
+      setLocating(false);
+      notify('📍 Ваше местоположение определено', 'success');
+    };
+
+    const onError = (err?: GeolocationPositionError) => {
+      // Быстрый откат на не-GPS позиционирование (WiFi / соты / IP)
+      navigator.geolocation.getCurrentPosition(
+        onSuccess,
+        () => {
+          setLocating(false);
+          const msg =
+            err?.code === 1
+              ? 'Доступ к геопозиции заблокирован. Установлен центр СПб'
+              : 'Слабый сигнал GPS. Установлен центр СПб';
+          notify(msg, 'info');
+          setUserLocation((prev) => prev ?? [59.9386, 30.3141]);
+          if (map) moveMap(map, [59.9386, 30.3141], 13);
+        },
+        { enableHighAccuracy: false, timeout: 6000, maximumAge: 300_000 }
+      );
+    };
+
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+      enableHighAccuracy: true,
+      timeout: 4000,
+      maximumAge: 60_000,
+    });
   }, [map, notify]);
 
   const startPick = () => {
@@ -576,6 +602,15 @@ export default function App() {
             <Clock className="h-3 w-3 text-accent shrink-0" />
             <span>{formatCurrentDateTime(now)}</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setPendingAction(() => () => {})}
+            className="flex items-center gap-1 font-semibold text-accent hover:underline active:scale-95 transition truncate max-w-[130px]"
+            title="Нажмите, чтобы сменить имя"
+          >
+            <span>👤</span>
+            <span className="truncate">{identity.name || 'Игрок MAX'}</span>
+          </button>
           <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-200">
             <span>{topWeather?.icon ?? '⛅'}</span>
             <span>{topWeather ? `${topWeather.temp_c > 0 ? '+' : ''}${topWeather.temp_c}°C, ${topWeather.description}` : 'Погода…'}</span>

@@ -49,7 +49,9 @@ declare global {
 const GUEST_KEY = 'maxstreet.guest';
 
 function webApp(): MaxWebApp | undefined {
-  return typeof window === 'undefined' ? undefined : window.WebApp;
+  if (typeof window === 'undefined') return undefined;
+  const win = window as any;
+  return win.WebApp || win.Telegram?.WebApp || win.MaxWebApp;
 }
 
 /** Методы моста возвращают Promise и могут отсутствовать на части платформ: глушим ошибки. */
@@ -69,7 +71,7 @@ export function initMaxBridge(): void {
 }
 
 export function isInsideMax(): boolean {
-  return Boolean(webApp()?.initData);
+  return Boolean(webApp()?.initData || (window as any).Telegram?.WebApp?.initData);
 }
 
 export function getInitData(): string {
@@ -103,6 +105,26 @@ export function getStartCourtId(): number | null {
   return match ? Number(match[1]) : null;
 }
 
+export function getInitialLocationFromUrl(): [number, number] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const latStr = searchParams.get('lat') || hashParams.get('lat') || searchParams.get('latitude') || hashParams.get('latitude');
+    const lonStr = searchParams.get('lon') || hashParams.get('lon') || searchParams.get('lng') || hashParams.get('longitude') || hashParams.get('lng');
+    if (latStr && lonStr) {
+      const lat = parseFloat(latStr);
+      const lon = parseFloat(lonStr);
+      if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        return [lat, lon];
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 interface GuestProfile {
   id: string;
   name: string;
@@ -131,7 +153,7 @@ function writeGuest(profile: GuestProfile): void {
 function ensureGuest(): GuestProfile {
   const existing = readGuest();
   if (existing && existing.name.trim()) return existing;
-  const profile = { id: existing?.id || `guest_${Math.random().toString(36).slice(2, 10)}`, name: 'Гость (Жюри)' };
+  const profile = { id: existing?.id || `usr_${Math.random().toString(36).slice(2, 10)}`, name: 'Игрок MAX' };
   writeGuest(profile);
   return profile;
 }
@@ -143,7 +165,7 @@ function parseUserFromUrl(): Identity | null {
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
 
-    // Проверяем initData / tgWebAppData в search и hash
+    // 1. Проверяем initData / tgWebAppData в search и hash
     const rawInitData =
       searchParams.get('initData') ||
       searchParams.get('tgWebAppData') ||
@@ -160,13 +182,14 @@ function parseUserFromUrl(): Identity | null {
             last_name?: string;
             username?: string;
           };
-          if (userObj && userObj.id) {
+          if (userObj && (userObj.id || userObj.first_name || userObj.username)) {
             const name =
               [userObj.first_name, userObj.last_name].filter(Boolean).join(' ') ||
               userObj.username ||
-              `Пользователь #${userObj.id}`;
+              (userObj.id ? `Пользователь #${userObj.id}` : 'Игрок MAX');
+            const uid = String(userObj.id || ensureGuest().id);
             const identity: Identity = {
-              maxUserId: String(userObj.id),
+              maxUserId: uid,
               name,
               username: userObj.username ?? null,
               isGuest: false,
@@ -180,7 +203,7 @@ function parseUserFromUrl(): Identity | null {
       }
     }
 
-    // Проверяем прямые URL-параметры (user_id, userId, id, name, user_name, username)
+    // 2. Проверяем прямые URL-параметры (user_id, userId, id, name, user_name, username)
     const directId =
       searchParams.get('user_id') ||
       searchParams.get('userId') ||
@@ -188,18 +211,24 @@ function parseUserFromUrl(): Identity | null {
       hashParams.get('user_id') ||
       hashParams.get('userId') ||
       hashParams.get('id');
-    if (directId) {
-      const rawName =
-        searchParams.get('user_name') ||
-        searchParams.get('userName') ||
-        searchParams.get('name') ||
-        searchParams.get('first_name') ||
-        hashParams.get('name') ||
-        hashParams.get('user_name');
-      const directUsername = searchParams.get('username') || hashParams.get('username') || null;
-      const cleanName = rawName ? decodeURIComponent(rawName).trim() : directUsername || `Пользователь #${directId}`;
+
+    const rawName =
+      searchParams.get('user_name') ||
+      searchParams.get('userName') ||
+      searchParams.get('name') ||
+      searchParams.get('first_name') ||
+      hashParams.get('name') ||
+      hashParams.get('user_name');
+
+    const directUsername = searchParams.get('username') || hashParams.get('username') || null;
+
+    if (directId || rawName || directUsername) {
+      const cleanName = rawName
+        ? decodeURIComponent(rawName).trim()
+        : directUsername || (directId ? `Пользователь #${directId}` : 'Игрок MAX');
+      const uid = String(directId || ensureGuest().id);
       const identity: Identity = {
-        maxUserId: String(directId),
+        maxUserId: uid,
         name: cleanName,
         username: directUsername,
         isGuest: false,
@@ -225,7 +254,7 @@ export function getIdentity(): Identity {
     return fromUrl;
   }
   const guest = ensureGuest();
-  return { maxUserId: guest.id, name: guest.name, username: null, isGuest: true };
+  return { maxUserId: guest.id, name: guest.name, username: null, isGuest: guest.name === 'Игрок MAX' };
 }
 
 export function saveGuestName(name: string): Identity {
