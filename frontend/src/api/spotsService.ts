@@ -11,6 +11,8 @@ import {
 } from '../lib/mockData';
 import type {
   BotInfo,
+  CheckInPayload,
+  CheckInResponse,
   Court,
   CourtDetail,
   CreateCourtPayload,
@@ -143,6 +145,15 @@ class SpotsService {
           message: '🎉 Корт забронирован! Safe Split сработал, бронь #BOOK-LOKO-701',
         };
       }
+      throw err;
+    }
+  }
+
+  async checkinGame(gameId: number, payload: CheckInPayload): Promise<CheckInResponse> {
+    try {
+      return await rawRequest<CheckInResponse>(`/games/${gameId}/checkin`, { method: 'POST', body: payload });
+    } catch (err) {
+      this.triggerFallback((err as Error)?.message || 'Ошибка сети');
       throw err;
     }
   }

@@ -661,7 +661,10 @@ class MaxBotService:
         return View(
             text,
             [
-                [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")],
+                [
+                    self.app_button("📍 Открыть площадку", f"court_{game.court_id}"),
+                    self.app_button("💬 Чат сбора", f"court_{game.court_id}"),
+                ],
                 [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude)), cb("🙋 Мои игры", "my")],
             ],
         )
@@ -678,7 +681,10 @@ class MaxBotService:
         view = View(
             "✅ <b>Состав собран!</b>\n\n" + self._game_card(game) + tail,
             [
-                [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")],
+                [
+                    self.app_button("📍 Открыть площадку", f"court_{game.court_id}"),
+                    self.app_button("💬 Чат сбора", f"court_{game.court_id}"),
+                ],
                 [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude)), cb("🙋 Мои игры", "my")],
             ],
         )

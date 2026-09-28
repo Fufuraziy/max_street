@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { CircleCheck, Clock, Crown, LogOut, MapPin, ShieldCheck, UserPlus, Zap } from 'lucide-react';
+import { spotsService } from '../api/spotsService';
 import { GAME_STATUS_STYLES, PAYMENT_STATUS_STYLES, SPORTS } from '../lib/constants';
 import {
   amountDue,
@@ -103,6 +105,42 @@ export default function GameCard({
   const shown = participants.slice(0, 6);
   const hidden = participants.length - shown.length;
 
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [isCheckedInLocal, setIsCheckedInLocal] = useState(false);
+  const [checkInMsg, setCheckInMsg] = useState<string | null>(null);
+
+  const isCheckedIn = Boolean(me?.checked_in || isCheckedInLocal);
+
+  const handleCheckIn = () => {
+    if (!navigator.geolocation) {
+      alert('Геолокация не поддерживается вашим браузером');
+      return;
+    }
+    setCheckingIn(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await spotsService.checkinGame(game.id, {
+            user_max_id: identity.maxUserId,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+          setIsCheckedInLocal(true);
+          setCheckInMsg(res.message);
+        } catch (err: any) {
+          alert(err.message || 'Ошибка чек-ина');
+        } finally {
+          setCheckingIn(false);
+        }
+      },
+      () => {
+        setCheckingIn(false);
+        alert('Не удалось получить координаты. Разрешите доступ к геолокации в браузере.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   return (
     <article className="card mt-2">
       <div className="flex items-start gap-3">
@@ -189,6 +227,14 @@ export default function GameCard({
                     <span className="text-slate-400"> (Организатор)</span>
                   )}
                   {participant.user_max_id === identity.maxUserId && <span className="text-accent"> · вы</span>}
+                  {(participant.checked_in || (participant.user_max_id === identity.maxUserId && isCheckedInLocal)) && (
+                    <span
+                      className="shrink-0 rounded px-1 py-0.2 text-[10px] font-semibold text-emerald-800 bg-emerald-200/80 dark:bg-emerald-400/20 dark:text-emerald-200"
+                      title="Игрок физически отметился на корте по GPS"
+                    >
+                      📍 На корте
+                    </span>
+                  )}
                 </span>
               </span>
               {participant.has_paid ? (
@@ -235,40 +281,80 @@ export default function GameCard({
 
       <div className="mt-3">
         {booked ? (
-          <div className="animate-pop-in rounded-2xl bg-emerald-600 px-4 py-3 text-white shadow-sm">
-            <p className="font-semibold">🎉 Корт успешно забронирован!</p>
-            <p className="mt-0.5 text-sm text-white/90">
-              Номер брони: <b className="font-mono">#{game.booking_reference}</b>
-            </p>
+          <div className="flex flex-col gap-2">
+            <div className="animate-pop-in rounded-2xl bg-emerald-600 px-4 py-3 text-white shadow-sm">
+              <p className="font-semibold">🎉 Корт успешно забронирован!</p>
+              <p className="mt-0.5 text-sm text-white/90">
+                Номер брони: <b className="font-mono">#{game.booking_reference}</b>
+              </p>
+            </div>
+            {isMember && (
+              isCheckedIn ? (
+                <div className="flex items-center gap-1.5 rounded-xl bg-emerald-100/80 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                  <span>{checkInMsg || 'Явка на корт подтверждена (Чек-ин пройден)'}</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300/80 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700/50 dark:bg-emerald-950/40 dark:text-emerald-200 transition"
+                  disabled={checkingIn}
+                  onClick={handleCheckIn}
+                  title="Подтвердить явку на площадку через GPS (в радиусе до 400м) для повышения спортивной кармы"
+                >
+                  {checkingIn ? <Spinner className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5 text-emerald-600" />}
+                  Отметиться на корте (+Карма надёжности)
+                </button>
+              )
+            )}
           </div>
         ) : isMember ? (
-          <div className="flex flex-wrap gap-2">
-            {collecting && me && !me.has_paid ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2">
+              {collecting && me && !me.has_paid ? (
+                <button
+                  type="button"
+                  className="btn-primary flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  disabled={busy}
+                  onClick={onQuickSimulatePay || onPay}
+                >
+                  {busy ? <Spinner /> : <Zap className="h-5 w-5 text-amber-300 fill-amber-300" />}
+                  Сымитировать оплату доли ({formatRub(due)})
+                </button>
+              ) : (
+                <div className="flex min-h-[48px] flex-1 items-center gap-2 rounded-2xl bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+                  {isCreator ? <Crown className="h-5 w-5" /> : <CircleCheck className="h-5 w-5" />}
+                  {game.is_paid ? 'Ваша доля внесена' : isCreator ? 'Вы организатор' : 'Вы в составе'}
+                </div>
+              )}
               <button
                 type="button"
-                className="btn-primary flex-1 bg-emerald-600 hover:bg-emerald-700"
+                className="btn-secondary border border-slate-200 dark:border-white/10"
                 disabled={busy}
-                onClick={onQuickSimulatePay || onPay}
+                onClick={onLeave}
+                title={me?.has_paid ? 'Взнос вернётся с эскроу-счёта' : undefined}
               >
-                {busy ? <Spinner /> : <Zap className="h-5 w-5 text-amber-300 fill-amber-300" />}
-                Сымитировать оплату доли ({formatRub(due)})
+                {busy ? <Spinner className="h-4 w-4" /> : <LogOut className="h-4 w-4" />}
+                Выйти
               </button>
-            ) : (
-              <div className="flex min-h-[48px] flex-1 items-center gap-2 rounded-2xl bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-                {isCreator ? <Crown className="h-5 w-5" /> : <CircleCheck className="h-5 w-5" />}
-                {game.is_paid ? 'Ваша доля внесена' : isCreator ? 'Вы организатор' : 'Вы в составе'}
+            </div>
+            {isCheckedIn ? (
+              <div className="flex items-center gap-1.5 rounded-xl bg-emerald-100/80 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                <span>{checkInMsg || 'Явка на корт подтверждена (Чек-ин пройден)'}</span>
               </div>
+            ) : (
+              <button
+                type="button"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300/80 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700/50 dark:bg-emerald-950/40 dark:text-emerald-200 transition"
+                disabled={checkingIn}
+                onClick={handleCheckIn}
+                title="Подтвердить явку на площадку через GPS (в радиусе до 400м) для повышения спортивной кармы"
+              >
+                {checkingIn ? <Spinner className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5 text-emerald-600" />}
+                Отметиться на корте (+Карма надёжности)
+              </button>
             )}
-            <button
-              type="button"
-              className="btn-secondary border border-slate-200 dark:border-white/10"
-              disabled={busy}
-              onClick={onLeave}
-              title={me?.has_paid ? 'Взнос вернётся с эскроу-счёта' : undefined}
-            >
-              {busy ? <Spinner className="h-4 w-4" /> : <LogOut className="h-4 w-4" />}
-              Выйти
-            </button>
           </div>
         ) : isFull ? (
           <button type="button" className="btn-secondary w-full" disabled>
