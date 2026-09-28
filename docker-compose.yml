@@ -31,7 +31,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-maxstreet}
       APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://max-street.pages.dev,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:8000,*}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://fufuraziy.github.io,https://max-street.pages.dev,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:8000,*}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_API_BASE_URL: ${MAX_API_BASE_URL:-https://platform-api2.max.ru}
@@ -39,7 +39,7 @@ services:
       MAX_WEBHOOK_URL: ${MAX_WEBHOOK_URL:-}
       MAX_WEBHOOK_SECRET: ${MAX_WEBHOOK_SECRET:-}
       MAX_USE_OPEN_APP_BUTTON: ${MAX_USE_OPEN_APP_BUTTON:-true}
-      MINIAPP_URL: ${MINIAPP_URL:-https://max-street.pages.dev}
+      MINIAPP_URL: ${MINIAPP_URL:-https://fufuraziy.github.io/max_street}
       REQUIRE_INIT_DATA: ${REQUIRE_INIT_DATA:-false}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       PAYMENT_MODE: ${PAYMENT_MODE:-mock}

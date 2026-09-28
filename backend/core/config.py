@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     app_name: str = "MAX Стрит"
     log_level: str = "INFO"
     app_timezone: str = "Europe/Moscow"
-    cors_origins: str = "https://max-street.pages.dev,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:8000,*"
+    cors_origins: str = "https://fufuraziy.github.io,https://max-street.pages.dev,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:8000,*"
 
     # --- База данных ---
     # DATABASE_URL имеет приоритет; иначе URL собирается из POSTGRES_* (пароль экранируется).
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     max_webhook_url: str = ""
     max_webhook_secret: str = ""
     max_use_open_app_button: bool = True
-    miniapp_url: str = "https://max-street.pages.dev"
+    miniapp_url: str = "https://fufuraziy.github.io/max_street"
 
     # --- Безопасность ---
     require_init_data: bool = False

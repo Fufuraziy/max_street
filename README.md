@@ -5,7 +5,7 @@
 ---
 
 ### 🌐 Быстрый доступ к сервисам
-- **Production Frontend (Cloudflare Pages):** [https://max-street.pages.dev/](https://max-street.pages.dev/)
+- **Production Frontend (GitHub Pages):** [https://fufuraziy.github.io/max_street/](https://fufuraziy.github.io/max_street/)
 - **Официальный бот MAX:** `@t69_hakaton_max_bot` (ID: `393483883`, Имя: `Хакатон МАХ 69`)
 - **Локальный веб-интерфейс (после запуска):** [http://localhost:3000](http://localhost:3000)
 - **REST API Swagger:** [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
@@ -17,7 +17,7 @@
 
 Решение содержит полностью преднастроенный демонстрационный сценарий, готовый к мгновенной проверке:
 
-1. Откройте веб-приложение **[https://max-street.pages.dev/](https://max-street.pages.dev/)** (или локально `http://localhost:3000`).
+1. Откройте веб-приложение **[https://fufuraziy.github.io/max_street/](https://fufuraziy.github.io/max_street/)** (или локально `http://localhost:3000`).
 2. Включите фильтр **«Аренда»** и выберите корт **«Спортивный центр «Локомотив» (Мини-футбол)»** (ул. Константина Заслонова, 23/4).
 3. В открывшейся карточке уже готово лобби Safe Split со статусом **5/6 участников**:
    - Аренда зала: **3 000 ₽**, доля каждого участника: **500 ₽**.
@@ -49,7 +49,7 @@
 flowchart LR
     subgraph Client["Клиентский слой"]
         MAX["Мессенджер MAX<br/>Чат-бот @t69_hakaton_max_bot"]
-        WEB["Мини-приложение React 18<br/>https://max-street.pages.dev/"]
+        WEB["Мини-приложение React 18<br/>https://fufuraziy.github.io/max_street/"]
     end
 
     subgraph Compose["Docker Compose (Локальный контур)"]
@@ -139,7 +139,7 @@ POSTGRES_DB=maxstreet
 
 # Приложение и CORS
 APP_TIMEZONE=Europe/Moscow
-CORS_ORIGINS=https://max-street.pages.dev,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:8000,*
+CORS_ORIGINS=https://fufuraziy.github.io,https://max-street.pages.dev,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:8000,*
 SEED_DEMO_DATA=true
 SLOTS_SEED_DAYS=5
 
@@ -153,7 +153,7 @@ MAX_BOT_TOKEN=
 MAX_API_BASE_URL=https://platform-api2.max.ru
 MAX_BOT_MODE=auto
 MAX_WEBHOOK_URL=
-MINIAPP_URL=https://max-street.pages.dev
+MINIAPP_URL=https://fufuraziy.github.io/max_street
 ```
 
 ---
@@ -190,7 +190,7 @@ MINIAPP_URL=https://max-street.pages.dev
 ## 6. Интеграция с ботом MAX
 
 - **Данные бота:** ID: `393483883`, Имя: `Хакатон МАХ 69`, Username: `@t69_hakaton_max_bot`.
-- **Поддержка команды `/start`:** бот отправляет приветствие, описание возможностей и прямую веб-ссылку на мини-приложение `https://max-street.pages.dev/`, а также WebApp-кнопку `open_app`.
+- **Поддержка команды `/start`:** бот отправляет приветствие, описание возможностей и прямую веб-ссылку на мини-приложение `https://fufuraziy.github.io/max_street/`, а также WebApp-кнопку `open_app`.
 - **Эндпоинты вебхуков:**
   - `POST /webhook` (корневой эндпоинт по регламенту платформы)
   - `POST /api/v1/bot/webhook`

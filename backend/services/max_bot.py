@@ -365,7 +365,7 @@ class MaxBotService:
 
     def web_link(self, payload: str | None = None) -> str:
         court_id = parse_ref(payload or "", "court")
-        base = self.cfg.public_miniapp_url
+        base = self.cfg.public_miniapp_url.rstrip("/")
         return f"{base}/?court={court_id}" if court_id else f"{base}/"
 
     def app_button(self, text: str, payload: str | None = None) -> Button | None:
@@ -728,10 +728,11 @@ class MaxBotService:
 
     def _welcome_view(self, identity: Identity) -> View:
         first_name = esc(identity.name.split()[0]) if identity.name.strip() else "друг"
+        miniapp_url = self.web_link()
         text = (
             f"👋 Привет, {first_name}!\n\n"
             "<b>MAX Стрит</b> — интерактивная карта дворовых спортплощадок и сборы на игры в Санкт-Петербурге.\n\n"
-            "🌐 Мини-приложение: https://max-street.pages.dev/\n\n"
+            f"🌐 Мини-приложение: {miniapp_url}\n\n"
             "🗺 <b>Площадки рядом:</b> покрытие, освещение и кто сегодня играет\n"
             "👥 <b>Сборы на игры:</b> 3×3, 5×5, падел или теннис. Когда кворум собран — бот пришлёт уведомление\n"
             "💳 <b>Safe Split:</b> сплит-оплата аренды коммерческих кортов через безопасный эскроу-счёт\n"
@@ -742,8 +743,8 @@ class MaxBotService:
         app_btn = self.app_button("🗺 Открыть карту площадок")
         if app_btn:
             buttons.append([app_btn])
-        else:
-            buttons.append([link("🌐 Открыть MAX Стрит", "https://max-street.pages.dev/")])
+        if not app_btn or app_btn.get("type") != "link":
+            buttons.append([link("🌐 Открыть в браузере", miniapp_url)])
         buttons.extend([
             [cb("🔥 Ближайшие сборы", "find"), cb("🙋 Мои игры", "my")],
             [geo("📍 Площадки рядом со мной")],
