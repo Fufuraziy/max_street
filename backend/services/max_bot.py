@@ -433,7 +433,7 @@ class MaxBotService:
         command = command.lower().split("@", 1)[0]
         argument = argument.strip()
 
-        if command in {"/start", "start", "старт", "начать", "привет", "меню", "/menu"}:
+        if command in {"/start", "start", "старт", "начать", "привет", "меню", "/menu", "назад", "/back", "back"}:
             view = self._welcome_view(identity)
         elif command in {"/help", "help", "помощь", "?"}:
             view = self._help_view()
@@ -503,14 +503,14 @@ class MaxBotService:
                 left = await game_service.leave_game(session, int(argument), identity)
                 view = self._leave_result_view(left)
                 extra = self._left_actions(left, identity)
-            elif action == "menu":
+            elif action in {"menu", "back"}:
                 view = self._welcome_view(identity)
             else:
                 view = self._help_view()
         except DomainError as exc:
             view = View(
                 f"⚠️ {esc(exc.message)}",
-                [[cb("🔥 К списку сборов", "find")], [self.app_button("🗺 Открыть карту")]],
+                [[cb("◀️ К списку сборов", "find"), cb("🏠 В меню", "menu")], [self.app_button("🗺 Открыть карту")]],
             )
         except ValueError:
             view = self._help_view()
@@ -640,7 +640,7 @@ class MaxBotService:
             view = View(
                 f"{head}\nВаш взнос {format_rub(refund.amount)} возвращён (тестовый СБП), слот освобождён.\n\n"
                 + self._game_card(game),
-                [[cb("🔥 Другие сборы", "find")], [self.app_button("🗺 Открыть карту")]],
+                [[cb("🔥 Другие сборы", "find"), cb("🏠 В меню", "menu")], [self.app_button("🗺 Открыть карту")]],
             )
             actions.append(self._send_to_user(refund.user_max_id, view))
         return actions
@@ -666,7 +666,11 @@ class MaxBotService:
                     self.app_button("📍 Открыть площадку", f"court_{game.court_id}"),
                     self.app_button("💬 Чат сбора", f"court_{game.court_id}"),
                 ],
-                [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude)), cb("🙋 Мои игры", "my")],
+                [
+                    link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude)),
+                    cb("🙋 Мои игры", "my"),
+                    cb("🏠 В меню", "menu"),
+                ],
             ],
         )
 
@@ -760,24 +764,40 @@ class MaxBotService:
             "💳 Аренда корта оплачивается через безопасный сбор MAX Escrow: каждый вносит только свою долю, "
             "деньги уходят арендодателю, когда собрано 100%. Если сбор не наберётся к дедлайну, деньги вернутся автоматически."
         )
-        return View(text, [[self.app_button("🗺 Открыть карту")], [cb("🔥 Ближайшие сборы", "find")]])
+        return View(
+            text,
+            [
+                [self.app_button("🗺 Открыть карту")],
+                [cb("🔥 Ближайшие сборы", "find"), cb("◀️ Назад в меню", "menu")],
+            ],
+        )
 
     def _map_view(self) -> View:
         return View(
             "🗺 Все площадки, сборы и заявки о поломках есть на карте в мини-приложении.",
-            [[self.app_button("🗺 Открыть карту площадок")]],
+            [
+                [self.app_button("🗺 Открыть карту площадок")],
+                [cb("◀️ Назад в меню", "menu")],
+            ],
         )
 
     def _ask_location_view(self) -> View:
         return View(
             "📍 Пришлите геолокацию, и я покажу ближайшие площадки и сегодняшние сборы.",
-            [[geo("📍 Отправить геолокацию")], [self.app_button("🗺 Открыть карту")]],
+            [
+                [geo("📍 Отправить геолокацию")],
+                [self.app_button("🗺 Открыть карту"), cb("◀️ Назад в меню", "menu")],
+            ],
         )
 
     def _fallback_view(self) -> View:
         return View(
             "🤔 Не понял запрос. Напишите вид спорта, например «баскетбол», или воспользуйтесь кнопками ниже.",
-            [[self.app_button("🗺 Открыть карту")], [cb("🔥 Ближайшие сборы", "find")], self._sport_filter_row()],
+            [
+                [self.app_button("🗺 Открыть карту")],
+                [cb("🔥 Ближайшие сборы", "find"), cb("◀️ Назад в меню", "menu")],
+                self._sport_filter_row(),
+            ],
         )
 
     def _game_card(self, game: Game) -> str:
@@ -854,7 +874,7 @@ class MaxBotService:
                 [
                     [self.app_button("➕ Создать сбор на карте")],
                     self._sport_filter_row(),
-                    [cb("🔄 Обновить", f"find:{sport or ''}")],
+                    [cb("🔄 Обновить", f"find:{sport or ''}"), cb("◀️ Назад в меню", "menu")],
                 ],
             )
         blocks = [title]
@@ -867,6 +887,7 @@ class MaxBotService:
                 buttons.append([cb(f"ℹ️ {index}. {game.court.title[:40]}", f"court:{game.court_id}")])
         buttons.append(self._sport_filter_row())
         buttons.append([self.app_button("🗺 Все площадки на карте"), cb("🔄 Обновить", f"find:{sport or ''}")])
+        buttons.append([cb("◀️ Назад в главное меню", "menu")])
         return View("\n\n".join(blocks), buttons)
 
     async def _my_games_view(self, session: AsyncSession, identity: Identity) -> View:
@@ -874,7 +895,7 @@ class MaxBotService:
         if not games:
             return View(
                 "🙋 У вас пока нет активных игр.\nЗагляните в /find или создайте свой сбор на карте.",
-                [[cb("🔥 Ближайшие сборы", "find")], [self.app_button("🗺 Открыть карту")]],
+                [[cb("🔥 Ближайшие сборы", "find")], [self.app_button("🗺 Открыть карту"), cb("◀️ Назад в меню", "menu")]],
             )
         blocks = ["🙋 <b>Мои игры</b>"]
         buttons: list[list[Button | None]] = []
@@ -897,7 +918,7 @@ class MaxBotService:
                         cb("ℹ️ Площадка", f"court:{game.court_id}"),
                     ]
                 )
-        buttons.append([self.app_button("🗺 Открыть карту")])
+        buttons.append([self.app_button("🗺 Открыть карту"), cb("◀️ Назад в главное меню", "menu")])
         return View("\n\n".join(blocks), buttons)
 
     async def _court_view(self, session: AsyncSession, court_id: int) -> View:
@@ -939,7 +960,8 @@ class MaxBotService:
         else:
             lines.append("Сборов пока нет. Создайте первый в мини-приложении.")
         buttons.append([self.app_button("🗺 Открыть в мини-приложении", f"court_{court.id}")])
-        buttons.append([link("🧭 Маршрут", route_url(court.latitude, court.longitude)), cb("🔥 Все сборы", "find")])
+        buttons.append([link("🧭 Маршрут", route_url(court.latitude, court.longitude))])
+        buttons.append([cb("◀️ Назад к сборам", "find"), cb("🏠 Главное меню", "menu")])
         return View("\n".join(lines), buttons)
 
     async def _nearby_view(self, session: AsyncSession, lat: float, lon: float) -> View:
@@ -947,7 +969,7 @@ class MaxBotService:
         if not items:
             return View(
                 "😔 В радиусе 25 км площадок пока нет. Добавьте свою через мини-приложение.",
-                [[self.app_button("🗺 Открыть карту")]],
+                [[self.app_button("🗺 Открыть карту"), cb("◀️ Назад в меню", "menu")]],
             )
         lines = ["📍 <b>Площадки рядом с вами</b>", ""]
         buttons: list[list[Button | None]] = []
@@ -956,7 +978,7 @@ class MaxBotService:
             games_text = f"сборов сегодня: {games_today}" if games_today else "сегодня сборов нет"
             lines.append(f"{index}. <b>{esc(court.title)}</b> — {format_distance(distance)}\n      {icons} · {games_text}")
             buttons.append([cb(f"{index}. {court.title[:40]} · {format_distance(distance)}", f"court:{court.id}")])
-        buttons.append([self.app_button("🗺 Открыть карту")])
+        buttons.append([self.app_button("🗺 Открыть карту"), cb("◀️ Назад в главное меню", "menu")])
         return View("\n".join(lines), buttons)
 
     def _join_result_view(self, result: game_service.JoinResult, identity: Identity) -> View:
@@ -977,7 +999,8 @@ class MaxBotService:
         buttons += [
             [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")],
             [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude))],
-            [cb("↩️ Выйти из сбора", f"leave:{game.id}"), cb("🔥 К списку", "find")],
+            [cb("↩️ Выйти из сбора", f"leave:{game.id}")],
+            [cb("◀️ Назад к сборам", "find"), cb("🏠 В главное меню", "menu")],
         ]
         return View(head + "\n\n" + self._game_card(game), buttons)
 
@@ -988,7 +1011,7 @@ class MaxBotService:
         if result.refunds:
             return View(
                 "↩️ Арендодатель не подтвердил бронь, все взносы возвращены.\n\n" + self._game_card(game),
-                [[cb("🔥 Другие сборы", "find")]],
+                [[cb("◀️ Другие сборы", "find"), cb("🏠 В главное меню", "menu")]],
             )
         head = (
             f"✅ Доля {format_rub(result.transaction.amount)} зачислена на защищённый эскроу-счёт "
@@ -1000,7 +1023,8 @@ class MaxBotService:
             head + "\n\n" + self._game_card(game),
             [
                 [self.app_button("📍 Открыть сбор", f"court_{game.court_id}")],
-                [cb("🙋 Мои игры", "my"), cb("🔥 К списку", "find")],
+                [cb("🙋 Мои игры", "my"), cb("◀️ К сборам", "find")],
+                [cb("🏠 В главное меню", "menu")],
             ],
         )
 
@@ -1009,12 +1033,15 @@ class MaxBotService:
         if result.cancelled:
             return View(
                 "🗑 Вы вышли из сбора. В нём никого не осталось, поэтому сбор отменён.",
-                [[cb("🔥 К списку сборов", "find")], [self.app_button("🗺 Открыть карту")]],
+                [[cb("◀️ К списку сборов", "find"), cb("🏠 В меню", "menu")], [self.app_button("🗺 Открыть карту")]],
             )
         head = "↩️ Вы вышли из сбора." + (" Набор снова открыт." if result.reopened else "")
         return View(
             head + "\n\n" + self._game_card(game),
-            [[cb("➕ Вернуться", f"join:{game.id}"), cb("🔥 К списку", "find")]],
+            [
+                [cb("➕ Вернуться", f"join:{game.id}"), cb("◀️ К сборам", "find")],
+                [cb("🏠 В главное меню", "menu")],
+            ],
         )
 
     # --- доставка ----------------------------------------------------------------
