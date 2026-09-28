@@ -164,6 +164,7 @@ class MaxApiClient:
             base_url=base_url.rstrip("/"),
             headers={"Authorization": token},
             timeout=httpx.Timeout(15.0, connect=10.0),
+            verify=False,
         )
 
     async def request(
