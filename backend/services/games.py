@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -26,7 +27,18 @@ from services.game_queries import full_game_query, get_game, lock_game
 from services.mock_booking_provider import SLOT_MIN_LEAD
 from services.users import upsert_user
 
-__all__ = ["JoinResult", "LeaveResult", "create_game", "get_game", "join_game", "leave_game", "list_games"]
+__all__ = [
+    "CheckInResult",
+    "JoinResult",
+    "LeaveResult",
+    "calculate_haversine_distance",
+    "checkin_player",
+    "create_game",
+    "get_game",
+    "join_game",
+    "leave_game",
+    "list_games",
+]
 
 MAX_ACTIVE_GAMES_PER_USER = 5
 MAX_GAME_HORIZON = timedelta(days=30)
@@ -47,6 +59,14 @@ class LeaveResult:
     reopened: bool
     new_creator: GameParticipant | None
     refund: RefundItem | None = None
+
+
+@dataclass(slots=True)
+class CheckInResult:
+    game: Game
+    distance_meters: int
+    reliability_score: float
+    message: str
 
 
 async def list_games(
@@ -289,4 +309,89 @@ async def leave_game(session: AsyncSession, game_id: int, player: Identity) -> L
         reopened=reopened,
         new_creator=new_creator,
         refund=refund,
+    )
+
+
+def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> int:
+    """Вычисляет расстояние между двумя координатами на Земле в метрах."""
+    R = 6371000
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = (
+        math.sin(delta_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return int(round(R * c))
+
+
+async def checkin_player(
+    session: AsyncSession,
+    game_id: int,
+    user_max_id: str,
+    user_lat: float,
+    user_lon: float,
+    max_distance_meters: int = 400,
+) -> CheckInResult:
+    """Подтверждает физическое присутствие игрока на корте и обновляет карму."""
+    game = await lock_game(session, game_id)
+    if game.status in (GameStatus.CANCELLED.value, GameStatus.FINISHED.value):
+        raise ConflictError("Этот сбор отменён или завершён")
+
+    participant = await session.scalar(
+        select(GameParticipant).where(
+            GameParticipant.game_id == game_id,
+            GameParticipant.user_max_id == user_max_id,
+        )
+    )
+    if participant is None:
+        raise NotFoundError("Вы не состоите в этом сборе")
+
+    court = await session.get(Court, game.court_id)
+    if court is None:
+        raise NotFoundError("Площадка не найдена")
+
+    dist = calculate_haversine_distance(user_lat, user_lon, court.latitude, court.longitude)
+    if dist > max_distance_meters:
+        raise ValidationFailedError(
+            f"Вы слишком далеко от площадки ({dist} м, допустимо до {max_distance_meters} м). Подойдите ближе для чек-ина!"
+        )
+
+    user = await session.scalar(select(User).where(User.max_user_id == user_max_id))
+    if participant.checked_in:
+        current_score = user.reliability_score if user else participant.reliability_score
+        return CheckInResult(
+            game=game,
+            distance_meters=dist,
+            reliability_score=current_score,
+            message="Вы уже отметились на этом сборе!",
+        )
+
+    participant.checked_in = True
+    participant.checked_in_at = utcnow()
+
+    # Повышаем рейтинг надёжности пользователя
+    if user:
+        user.games_attended += 1
+        total = user.games_attended + user.games_missed
+        new_score = round(min(100.0, max(50.0, (user.games_attended / total) * 100.0)), 1)
+        user.reliability_score = new_score
+        participant.reliability_score = new_score
+    else:
+        new_score = 100.0
+
+    await session.commit()
+    updated = await get_game(session, game_id)
+    try:
+        await event_bus.publish(game_id, "game_updated", GameWithCourt.model_validate(updated).model_dump(mode="json"))
+    except Exception:
+        pass
+
+    return CheckInResult(
+        game=updated,
+        distance_meters=dist,
+        reliability_score=new_score,
+        message=f"Чек-ин подтверждён! Вы на площадке ({dist} м). Карма: {new_score}%",
     )

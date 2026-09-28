@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Bot, CalendarDays } from 'lucide-react';
+import { Bot, CalendarDays, ShieldCheck } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
+import { initials } from '../lib/format';
 import { isInsideMax } from '../lib/max';
 import type { BotInfo, Game, GameWithCourt, Identity } from '../types';
 import GameCard from './GameCard';
@@ -53,6 +54,27 @@ export default function MyGamesSheet({
 
   return (
     <Modal title="Мои сборы" subtitle="Предстоящие игры, в которых вы участвуете" onClose={onClose}>
+      <div className="mb-4 flex items-center justify-between rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-teal-50/60 p-3.5 dark:border-emerald-400/20 dark:from-emerald-950/20 dark:to-teal-950/20">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 font-bold text-white shadow-sm">
+            {initials(identity.name || 'Игрок')}
+          </div>
+          <div>
+            <p className="font-bold leading-tight text-slate-800 dark:text-slate-100">{identity.name || 'Гость (Жюри)'}</p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">MAX ID: {identity.maxUserId}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm">
+            ★ 100%
+          </span>
+          <p className="mt-0.5 flex items-center justify-end gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+            <ShieldCheck className="h-3 w-3" />
+            Надёжный игрок
+          </p>
+        </div>
+      </div>
+
       {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-400/10 dark:text-rose-300">{error}</p>}
       {games === null && !error && (
         <div className="flex justify-center py-10">

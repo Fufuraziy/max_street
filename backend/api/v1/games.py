@@ -10,6 +10,8 @@ from core.config import settings
 from core.money import format_rub
 from models.enums import ACTIVE_GAME_STATUSES, PAYMENT_STATUS_LABELS, SportType
 from schemas.game import (
+    CheckInRequest,
+    CheckInResponse,
     EscrowRead,
     EscrowTransactionRead,
     GameCreate,
@@ -128,6 +130,31 @@ async def leave_game(
     if result.refund:
         message += f". Взнос {format_rub(result.refund.amount)} возвращён"
     return LeaveResponse(game=GameWithCourt.model_validate(result.game), message=message)
+
+
+@router.post("/{game_id}/checkin", response_model=CheckInResponse, summary="Геолокационный чек-ин на корте")
+async def checkin_game(
+    game_id: int,
+    payload: CheckInRequest,
+    session: SessionDep,
+    verified: InitIdentityDep,
+) -> CheckInResponse:
+    """Подтверждение явки на площадку по GPS (в радиусе до 400м) с повышением кармы/рейтинга надёжности."""
+    player_id = verified.max_user_id if verified else payload.user_max_id
+    result = await game_service.checkin_player(
+        session=session,
+        game_id=game_id,
+        user_max_id=player_id,
+        user_lat=payload.latitude,
+        user_lon=payload.longitude,
+    )
+    return CheckInResponse(
+        success=True,
+        distance_meters=result.distance_meters,
+        reliability_score=result.reliability_score,
+        message=result.message,
+        game=GameWithCourt.model_validate(result.game),
+    )
 
 
 @router.post("/{game_id}/pay", response_model=PayResponse, summary="Внести долю в эскроу (mock СБП)")

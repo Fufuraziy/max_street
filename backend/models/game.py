@@ -105,5 +105,7 @@ class GameParticipant(Base):
     has_paid: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     paid_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0"), server_default="0")
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    checked_in: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     game: Mapped[Game] = relationship(back_populates="participants")

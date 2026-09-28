@@ -51,6 +51,8 @@ export interface Participant {
   has_paid: boolean;
   paid_amount: number;
   paid_at: string | null;
+  checked_in?: boolean;
+  checked_in_at?: string | null;
 }
 
 export interface SlotBrief {
@@ -212,4 +214,18 @@ export interface ReportDefectPayload {
   user_name?: string | null;
   defect_type: DefectType;
   description: string;
+}
+
+export interface CheckInPayload {
+  user_max_id: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface CheckInResponse {
+  success: boolean;
+  distance_meters: number;
+  reliability_score: number;
+  message: string;
+  game: GameWithCourt;
 }

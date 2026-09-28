@@ -60,6 +60,8 @@ class ParticipantRead(BaseModel):
     has_paid: bool = False
     paid_amount: Money = ZERO
     paid_at: datetime | None = None
+    checked_in: bool = False
+    checked_in_at: datetime | None = None
 
 
 class GameRead(BaseModel):
@@ -176,3 +178,17 @@ class EscrowRead(BaseModel):
     booking_reference: str | None
     provider: str
     transactions: list[EscrowTransactionRead]
+
+
+class CheckInRequest(BaseModel):
+    user_max_id: MaxUserId
+    latitude: float = Field(ge=-90, le=90, description="Широта игрока")
+    longitude: float = Field(ge=-180, le=180, description="Долгота игрока")
+
+
+class CheckInResponse(BaseModel):
+    success: bool
+    distance_meters: int
+    reliability_score: float
+    message: str
+    game: GameWithCourt
