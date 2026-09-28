@@ -1,0 +1,11 @@
+{
+  "name": "maxstreet-root",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run --prefix frontend build",
+    "typecheck": "npm run --prefix frontend typecheck"
+  }
+}

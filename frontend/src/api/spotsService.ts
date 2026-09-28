@@ -1,4 +1,4 @@
-import { rawRequest, ApiError } from './client';
+import { rawRequest, ApiError, buildUrl } from './client';
 import {
   FALLBACK_COURTS,
   getFallbackCourts,
@@ -342,6 +342,35 @@ class SpotsService {
         deep_link: 'https://max.ru/t69_hakaton_max_bot?startapp',
         miniapp_url: 'https://max-street.pages.dev',
       };
+    }
+  }
+
+  subscribeGameEvents(gameId: number, onUpdate: (game: GameWithCourt) => void): () => void {
+    if (this.isFallbackMode || typeof EventSource === 'undefined') {
+      return () => {};
+    }
+    try {
+      const url = buildUrl(`/games/${gameId}/events`);
+      const es = new EventSource(url);
+      const listener = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data && data.id) {
+            onUpdate(data);
+          }
+        } catch {
+          // ignore parsing error
+        }
+      };
+      es.addEventListener('game_updated', listener);
+      es.addEventListener('game_created', listener);
+      return () => {
+        es.removeEventListener('game_updated', listener);
+        es.removeEventListener('game_created', listener);
+        es.close();
+      };
+    } catch {
+      return () => {};
     }
   }
 }

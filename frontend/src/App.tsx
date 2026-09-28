@@ -13,7 +13,7 @@ import PayModal from './components/PayModal';
 import PickLocationOverlay from './components/PickLocationOverlay';
 import ReportDefectModal from './components/ReportDefectModal';
 import { Spinner, Toast, type ToastState } from './components/ui';
-import { plural, routeUrl } from './lib/format';
+import { calculateDistanceMeters, plural, routeUrl } from './lib/format';
 import {
   getIdentity,
   getStartCourtId,
@@ -72,6 +72,7 @@ export default function App() {
   const [myGamesCount, setMyGamesCount] = useState(0);
   const [refreshToken, setRefreshToken] = useState(0);
   const [map, setMap] = useState<L.Map | null>(null);
+  const [sortByDistance, setSortByDistance] = useState(false);
 
   const startCourtId = useRef<number | null>(getStartCourtId());
   const initialViewDone = useRef(false);
@@ -84,6 +85,21 @@ export default function App() {
     if (kind !== 'info') hapticNotify(kind === 'success' ? 'success' : 'error');
   }, []);
   const hideToast = useCallback(() => setToast(null), []);
+
+  const handleGameUpdated = useCallback(
+    (updatedGame: Game) => {
+      setDetail((current) => {
+        if (!current || current.id !== updatedGame.court_id) return current;
+        const exists = current.games?.some((g) => g.id === updatedGame.id);
+        const nextGames = exists
+          ? current.games.map((g) => (g.id === updatedGame.id ? updatedGame : g))
+          : [updatedGame, ...(current.games || [])];
+        return { ...current, games: nextGames };
+      });
+      notify('⚡ Данные сбора обновлены в реальном времени', 'info');
+    },
+    [notify]
+  );
 
   useEffect(() => {
     const unsubscribe = spotsService.subscribeFallback((_, msg) => {
@@ -478,13 +494,23 @@ export default function App() {
 
   // --- Отрисовка -----------------------------------------------------------------------
 
-  const visibleCourts = useMemo(
-    () =>
-      (courts || []).filter(
-        (court) => (!onlyWithGames || court.active_games_today > 0) && (!onlyRental || court.is_commercial),
-      ),
-    [courts, onlyWithGames, onlyRental],
-  );
+  const courtsWithDistance = useMemo(() => {
+    if (!userLocation) return courts;
+    return (courts || []).map((court) => ({
+      ...court,
+      distance_meters: calculateDistanceMeters(userLocation[0], userLocation[1], court.latitude, court.longitude),
+    }));
+  }, [courts, userLocation]);
+
+  const visibleCourts = useMemo(() => {
+    let list = (courtsWithDistance || []).filter(
+      (court) => (!onlyWithGames || court.active_games_today > 0) && (!onlyRental || court.is_commercial),
+    );
+    if (sortByDistance && userLocation) {
+      list = [...list].sort((a, b) => (a.distance_meters ?? 0) - (b.distance_meters ?? 0));
+    }
+    return list;
+  }, [courtsWithDistance, onlyWithGames, onlyRental, sortByDistance, userLocation]);
   const gamesToday = useMemo(() => (courts || []).reduce((sum, court) => sum + court.active_games_today, 0), [courts]);
   const selectedCourt: Court | null =
     detail && detail.id === selectedId ? detail : ((courts || []).find((court) => court.id === selectedId) ?? null);
@@ -542,6 +568,9 @@ export default function App() {
           onOnlyWithGamesChange={setOnlyWithGames}
           onlyRental={onlyRental}
           onOnlyRentalChange={setOnlyRental}
+          hasLocation={userLocation !== null}
+          sortByDistance={sortByDistance}
+          onSortByDistanceChange={setSortByDistance}
         />
       </div>
 
@@ -610,6 +639,7 @@ export default function App() {
           loading={detailLoading}
           identity={identity}
           busyGameId={busyGameId}
+          userLocation={userLocation}
           onClose={() => setSelectedId(null)}
           onCreateGame={() => withIdentity(() => setModal('create-game'))}
           onReportDefect={() => setModal('report-defect')}
@@ -619,6 +649,8 @@ export default function App() {
           onQuickSimulatePay={simulateQuickPay}
           onRoute={() => openExternalLink(routeUrl(selectedCourt.latitude, selectedCourt.longitude))}
           onShare={() => void shareCourt(selectedCourt)}
+          onNotify={notify}
+          onGameUpdated={handleGameUpdated}
         />
       )}
 

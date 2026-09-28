@@ -16,10 +16,12 @@ from core.errors import ConflictError, NotFoundError, TooManyRequestsError, Vali
 from core.money import ZERO, to_money
 from core.security import Identity
 from core.timeutils import active_since, ensure_aware, utcnow
-from models import Court, CourtSlot, Game, GameParticipant
+from models import Court, CourtSlot, Game, GameParticipant, User
 from models.enums import ACTIVE_GAME_STATUSES, GameStatus, PaymentStatus, sport_label
+from schemas.game import GameWithCourt
 from services import escrow
 from services.escrow import RefundItem
+from services.event_bus import event_bus
 from services.game_queries import full_game_query, get_game, lock_game
 from services.mock_booking_provider import SLOT_MIN_LEAD
 from services.users import upsert_user
@@ -156,8 +158,15 @@ async def create_game(
             raise ValidationFailedError("Сбор можно запланировать не больше чем на 30 дней вперёд")
         game.start_time = start
 
-    # Создатель автоматически становится первым участником.
-    game.participants.append(GameParticipant(user_max_id=creator.max_user_id, user_name=creator.name))
+    # Создатель автоматически становится первым участником со своим рейтингом надёжности.
+    creator_score = await session.scalar(select(User.reliability_score).where(User.max_user_id == creator.max_user_id))
+    game.participants.append(
+        GameParticipant(
+            user_max_id=creator.max_user_id,
+            user_name=creator.name,
+            reliability_score=creator_score if creator_score is not None else 100.0,
+        )
+    )
     session.add(game)
     await upsert_user(session, creator)
     try:
@@ -166,7 +175,12 @@ async def create_game(
         # Уникальный частичный индекс uq_games_active_slot: слот успели занять параллельно.
         await session.rollback()
         raise ConflictError("На этот слот уже идёт сбор, выберите другое время") from exc
-    return await get_game(session, game.id)
+    created = await get_game(session, game.id)
+    try:
+        await event_bus.publish(created.id, "game_created", GameWithCourt.model_validate(created).model_dump(mode="json"))
+    except Exception:
+        pass
+    return created
 
 
 async def join_game(session: AsyncSession, game_id: int, player: Identity) -> JoinResult:
@@ -195,7 +209,15 @@ async def join_game(session: AsyncSession, game_id: int, player: Identity) -> Jo
     if game.current_players >= game.required_players:
         raise ConflictError("Лобби уже заполнено, выберите другой сбор или создайте свой")
 
-    session.add(GameParticipant(game_id=game.id, user_max_id=player.max_user_id, user_name=player.name))
+    player_score = await session.scalar(select(User.reliability_score).where(User.max_user_id == player.max_user_id))
+    session.add(
+        GameParticipant(
+            game_id=game.id,
+            user_max_id=player.max_user_id,
+            user_name=player.name,
+            reliability_score=player_score if player_score is not None else 100.0,
+        )
+    )
     game.current_players += 1
     confirmed = False
     if game.current_players == game.required_players:
@@ -204,7 +226,12 @@ async def join_game(session: AsyncSession, game_id: int, player: Identity) -> Jo
 
     await upsert_user(session, player)
     await session.commit()
-    return JoinResult(game=await get_game(session, game_id), joined=True, confirmed=confirmed)
+    updated = await get_game(session, game_id)
+    try:
+        await event_bus.publish(game_id, "game_updated", GameWithCourt.model_validate(updated).model_dump(mode="json"))
+    except Exception:
+        pass
+    return JoinResult(game=updated, joined=True, confirmed=confirmed)
 
 
 async def leave_game(session: AsyncSession, game_id: int, player: Identity) -> LeaveResult:
@@ -251,8 +278,13 @@ async def leave_game(session: AsyncSession, game_id: int, player: Identity) -> L
             reopened = True
 
     await session.commit()
+    updated = await get_game(session, game_id)
+    try:
+        await event_bus.publish(game_id, "game_updated", GameWithCourt.model_validate(updated).model_dump(mode="json"))
+    except Exception:
+        pass
     return LeaveResult(
-        game=await get_game(session, game_id),
+        game=updated,
         cancelled=cancelled,
         reopened=reopened,
         new_creator=new_creator,

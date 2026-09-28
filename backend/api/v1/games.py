@@ -1,8 +1,9 @@
-from __future__ import annotations
-
+import json
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Query
+from fastapi.responses import StreamingResponse
 
 from api.deps import InitIdentityDep, SessionDep, resolve_identity
 from core.config import settings
@@ -21,6 +22,7 @@ from schemas.game import (
 )
 from services import escrow
 from services import games as game_service
+from services.event_bus import event_bus
 from services.max_bot import bot_service
 
 router = APIRouter(prefix="/games", tags=["Сборы"])
@@ -189,4 +191,25 @@ async def escrow_statement(game_id: int, session: SessionDep) -> EscrowRead:
         booking_reference=game.booking_reference,
         provider=settings.booking_provider_name,
         transactions=[EscrowTransactionRead.model_validate(tx) for tx in transactions],
+    )
+
+
+@router.get("/{game_id}/events", summary="SSE поток событий лобби в реальном времени")
+async def game_events(game_id: int) -> StreamingResponse:
+    """Server-Sent Events (SSE) поток для обновления статуса лобби в реальном времени."""
+
+    async def sse_stream() -> AsyncIterator[str]:
+        yield "event: ping\ndata: {}\n\n"
+        async for msg in event_bus.subscribe(game_id):
+            payload = json.dumps(msg["data"], ensure_ascii=False)
+            yield f"event: {msg['event']}\ndata: {payload}\n\n"
+
+    return StreamingResponse(
+        sse_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

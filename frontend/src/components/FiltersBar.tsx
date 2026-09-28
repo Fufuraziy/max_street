@@ -1,4 +1,4 @@
-import { Flame, ShieldCheck } from 'lucide-react';
+import { Flame, Navigation, ShieldCheck } from 'lucide-react';
 import { SPORT_ORDER, SPORTS } from '../lib/constants';
 import { hapticImpact } from '../lib/max';
 import type { SportType } from '../types';
@@ -10,6 +10,9 @@ interface FiltersBarProps {
   onOnlyWithGamesChange: (value: boolean) => void;
   onlyRental: boolean;
   onOnlyRentalChange: (value: boolean) => void;
+  hasLocation?: boolean;
+  sortByDistance?: boolean;
+  onSortByDistanceChange?: (value: boolean) => void;
   className?: string;
 }
 
@@ -20,6 +23,9 @@ export default function FiltersBar({
   onOnlyWithGamesChange,
   onlyRental,
   onOnlyRentalChange,
+  hasLocation = false,
+  sortByDistance = false,
+  onSortByDistanceChange,
   className = '',
 }: FiltersBarProps) {
   const pick = (value: SportType | null) => {
@@ -49,6 +55,20 @@ export default function FiltersBar({
         <ShieldCheck className="h-4 w-4" />
         Аренда
       </button>
+      {hasLocation && onSortByDistanceChange && (
+        <button
+          type="button"
+          onClick={() => {
+            hapticImpact('light');
+            onSortByDistanceChange(!sortByDistance);
+          }}
+          aria-pressed={sortByDistance}
+          className={sortByDistance ? 'chip bg-sky-600 text-white shadow-sm' : 'chip-idle'}
+        >
+          <Navigation className="h-4 w-4" />
+          Рядом
+        </button>
+      )}
       {SPORT_ORDER.map((key) => {
         const meta = SPORTS[key];
         const active = sport === key;

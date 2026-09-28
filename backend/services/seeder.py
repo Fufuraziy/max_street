@@ -27,7 +27,7 @@ from core.config import settings
 from core.errors import DomainError
 from core.security import Identity
 from core.timeutils import active_since, local_now, utcnow
-from models import Court, CourtDefect, CourtSlot, Game, GameParticipant
+from models import Court, CourtDefect, CourtSlot, Game, GameParticipant, User
 from models.enums import ACTIVE_GAME_STATUSES, GameStatus
 from services import escrow
 from services import games as game_service
@@ -559,6 +559,17 @@ async def seed_demo_escrow_games(session: AsyncSession) -> int:
         for identity in identities:
             await escrow.pay_share(session, game.id, identity, None)
 
+        scores = [98.0, 95.0, 100.0, 96.0, 97.0]
+        for idx, p in enumerate(game.participants):
+            if idx < len(scores):
+                p.reliability_score = scores[idx]
+        for idx, identity in enumerate(identities):
+            db_u = await session.scalar(select(User).where(User.max_user_id == identity.max_user_id))
+            if db_u:
+                db_u.reliability_score = scores[idx]
+                db_u.games_attended = 18 + idx
+        await session.commit()
+
         logger.info(
             "Создано Safe Split лобби 5/6: сбор #%s на «%s», собрано 2500/3000 ₽",
             game.id,
@@ -641,16 +652,23 @@ async def seed_demo_games(session: AsyncSession) -> int:
             created_at=created_at,
         )
         for index, person in enumerate(participants):
+            score = float(94.0 + (index * 2) % 7)
             game.participants.append(
                 GameParticipant(
                     user_max_id=person["user_max_id"],
                     user_name=person["user_name"],
+                    reliability_score=score,
                     joined_at=created_at + timedelta(minutes=15 * index),
                 )
             )
         session.add(game)
-        for person in participants:
+        for index, person in enumerate(participants):
+            score = float(94.0 + (index * 2) % 7)
             await upsert_user(session, Identity(max_user_id=person["user_max_id"], name=person["user_name"]))
+            db_u = await session.scalar(select(User).where(User.max_user_id == person["user_max_id"]))
+            if db_u:
+                db_u.reliability_score = score
+                db_u.games_attended = 12 + index
         created += 1
 
     await session.commit()

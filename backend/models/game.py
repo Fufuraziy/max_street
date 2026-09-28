@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -99,6 +100,7 @@ class GameParticipant(Base):
     game_id: Mapped[int] = mapped_column(ForeignKey("games.id", ondelete="CASCADE"), index=True)
     user_max_id: Mapped[str] = mapped_column(String(64), index=True)
     user_name: Mapped[str] = mapped_column(String(100))
+    reliability_score: Mapped[float] = mapped_column(Float, default=100.0, server_default="100.0")
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     has_paid: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     paid_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0"), server_default="0")

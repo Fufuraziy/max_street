@@ -1,11 +1,13 @@
-import { useRef, useState, type ReactNode, type TouchEvent } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react';
 import {
   CalendarDays,
   CircleCheck,
+  FileText,
   Layers,
   Lightbulb,
   LightbulbOff,
   MapPin,
+  Navigation,
   Plus,
   Route,
   Share2,
@@ -16,9 +18,17 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
+import { api } from '../api/client';
 import { DEFECT_STATUS_STYLES, SPORTS, SURFACES } from '../lib/constants';
-import { formatRub, hexToRgba, timeAgo } from '../lib/format';
-import type { Court, CourtDetail, Game, Identity } from '../types';
+import {
+  calculateDistanceMeters,
+  formatDistance,
+  formatOfficialAppealText,
+  formatRub,
+  hexToRgba,
+  timeAgo,
+} from '../lib/format';
+import type { Court, CourtDetail, Defect, Game, Identity } from '../types';
 import GameCard from './GameCard';
 import { IconButton, SectionTitle } from './ui';
 
@@ -28,6 +38,7 @@ interface CourtDetailsSheetProps {
   loading: boolean;
   identity: Identity;
   busyGameId: number | null;
+  userLocation?: [number, number] | null;
   onClose: () => void;
   onCreateGame: () => void;
   onReportDefect: () => void;
@@ -37,6 +48,8 @@ interface CourtDetailsSheetProps {
   onQuickSimulatePay?: (game: Game) => void;
   onRoute: () => void;
   onShare: () => void;
+  onNotify?: (message: string, kind?: 'info' | 'success' | 'error') => void;
+  onGameUpdated?: (game: Game) => void;
 }
 
 function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
@@ -75,6 +88,7 @@ export default function CourtDetailsSheet({
   loading,
   identity,
   busyGameId,
+  userLocation,
   onClose,
   onCreateGame,
   onReportDefect,
@@ -84,6 +98,8 @@ export default function CourtDetailsSheet({
   onQuickSimulatePay,
   onRoute,
   onShare,
+  onNotify,
+  onGameUpdated,
 }: CourtDetailsSheetProps) {
   const [expanded, setExpanded] = useState(false);
   const touchStartY = useRef<number | null>(null);
@@ -92,6 +108,34 @@ export default function CourtDetailsSheet({
   const defects = Array.isArray(detail?.defects) ? detail.defects : [];
   const openDefects = (defects || []).filter((d) => d.status !== 'resolved');
   const resolvedDefects = (defects || []).filter((d) => d.status === 'resolved');
+
+  const distance = userLocation
+    ? calculateDistanceMeters(userLocation[0], userLocation[1], info.latitude, info.longitude)
+    : info.distance_meters;
+
+  useEffect(() => {
+    if (!games.length || !onGameUpdated) return undefined;
+    const unsubs = games.map((g) =>
+      api.subscribeGameEvents(g.id, (updatedGame) => {
+        onGameUpdated(updatedGame);
+      })
+    );
+    return () => {
+      unsubs.forEach((unsub) => unsub());
+    };
+  }, [games, onGameUpdated]);
+
+  const copyAppeal = (defect: Defect) => {
+    const text = formatOfficialAppealText(info.title, info.address, defect.defect_label, defect.description);
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        onNotify?.('📋 Текст заявления для «Наш СПб» / Госуслуг скопирован в буфер!', 'success');
+      })
+      .catch(() => {
+        onNotify?.('Не удалось скопировать текст в буфер', 'error');
+      });
+  };
 
   const onTouchStart = (event: TouchEvent) => {
     touchStartY.current = event.touches[0]?.clientY ?? null;
@@ -140,10 +184,18 @@ export default function CourtDetailsSheet({
             ))}
           </div>
           <h2 className="text-xl font-bold leading-tight">{info.title}</h2>
-          <p className="mt-1 flex items-start gap-1.5 text-sm text-slate-500 dark:text-slate-400">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-            {info.address}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+            <span className="flex items-start gap-1.5">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+              {info.address}
+            </span>
+            {distance !== undefined && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/90 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300">
+                <Navigation className="h-3 w-3" />
+                {formatDistance(distance)} от вас
+              </span>
+            )}
+          </div>
         </div>
         <IconButton label="Закрыть" onClick={onClose}>
           <X className="h-5 w-5" />
@@ -253,6 +305,14 @@ export default function CourtDetailsSheet({
             <p className="mt-1 text-xs text-slate-400">
               Заявка №{defect.id} · {timeAgo(defect.created_at)}
             </p>
+            <button
+              type="button"
+              className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-xl border border-slate-200/80 bg-white/70 py-1.5 text-xs font-semibold text-slate-700 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 transition active:scale-[0.98]"
+              onClick={() => copyAppeal(defect)}
+            >
+              <FileText className="h-3.5 w-3.5 text-accent" />
+              Скопировать обращение для «Наш СПб» / Госуслуг
+            </button>
           </div>
         ))}
         <button type="button" className="btn-secondary mb-2 mt-2 w-full" onClick={onReportDefect}>
