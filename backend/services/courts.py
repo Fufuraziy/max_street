@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -52,15 +53,16 @@ def _bbox(lat: float, lon: float, radius_m: float) -> tuple[float, float, float,
 
 
 async def active_games_today(session: AsyncSession, court_ids: list[int] | None = None) -> dict[int, int]:
-    """Количество активных сборов на сегодня по площадкам."""
+    """Количество активных сборов на сегодня и ближайшие дни по площадкам."""
     day_start, day_end = today_bounds()
     since = max(day_start, active_since())
+    horizon = max(day_end, since + timedelta(days=2))
     stmt = (
         select(Game.court_id, func.count(Game.id))
         .where(
             Game.status.in_(ACTIVE_GAME_STATUSES),
             Game.start_time >= since,
-            Game.start_time < day_end,
+            Game.start_time < horizon,
         )
         .group_by(Game.court_id)
     )

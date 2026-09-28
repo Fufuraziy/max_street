@@ -290,10 +290,37 @@ DEMO_FREE_GAMES = [
         ],
     },
     {
+        "court_title": "Баскетбольная площадка в Новой Голландии",
+        "sport_type": "basketball",
+        "required_players": 10,
+        "start": {"in_minutes": 180},
+        "comment": "Баскетбол 5×5 на острове Новая Голландия. Хорошая динамичная игра.",
+        "participants": [
+            {"user_max_id": "demo_free_111", "user_name": "Тимофей"},
+            {"user_max_id": "demo_free_112", "user_name": "Марк"},
+            {"user_max_id": "demo_free_113", "user_name": "Лев"},
+            {"user_max_id": "demo_free_114", "user_name": "Степан"},
+            {"user_max_id": "demo_free_115", "user_name": "Богдан"},
+            {"user_max_id": "demo_free_116", "user_name": "Семён"},
+        ],
+    },
+    {
+        "court_title": "Стритбольный спот в Севкабель Порту",
+        "sport_type": "basketball",
+        "required_players": 6,
+        "start": {"in_minutes": 210},
+        "comment": "Стритбол на закате у Финского залива! Ищем 3 игроков для полноценной игры 3х3.",
+        "participants": [
+            {"user_max_id": "demo_free_121", "user_name": "Григорий"},
+            {"user_max_id": "demo_free_122", "user_name": "Ян"},
+            {"user_max_id": "demo_free_123", "user_name": "Артур"},
+        ],
+    },
+    {
         "court_title": "Футбольная коробка в Парке Победы",
         "sport_type": "football",
         "required_players": 10,
-        "start": {"in_minutes": 180},
+        "start": {"in_minutes": 240},
         "comment": "Футбол 5×5 в коробке. Есть мяч и манишки, ищем ещё троих!",
         "participants": [
             {"user_max_id": "demo_free_201", "user_name": "Сергей"},
@@ -303,6 +330,35 @@ DEMO_FREE_GAMES = [
             {"user_max_id": "demo_free_205", "user_name": "Владимир"},
             {"user_max_id": "demo_free_206", "user_name": "Олег"},
             {"user_max_id": "demo_free_207", "user_name": "Ярослав"},
+        ],
+    },
+    {
+        "court_title": "Волейбольные площадки на Елагином острове (ЦПКиО)",
+        "sport_type": "volleyball",
+        "required_players": 12,
+        "start": {"in_minutes": 180},
+        "comment": "Классический волейбол 6х6 в парке на воздухе. Мяч Mikasa V200W, сетка натянута!",
+        "participants": [
+            {"user_max_id": "demo_free_401", "user_name": "Полина"},
+            {"user_max_id": "demo_free_402", "user_name": "Евгений"},
+            {"user_max_id": "demo_free_403", "user_name": "Анастасия"},
+            {"user_max_id": "demo_free_404", "user_name": "Владислав"},
+            {"user_max_id": "demo_free_405", "user_name": "Дарья"},
+            {"user_max_id": "demo_free_406", "user_name": "Игорь"},
+            {"user_max_id": "demo_free_407", "user_name": "Юлия"},
+            {"user_max_id": "demo_free_408", "user_name": "Антон"},
+        ],
+    },
+    {
+        "court_title": "Настольный теннис в парке Сосновка",
+        "sport_type": "table_tennis",
+        "required_players": 4,
+        "start": {"in_minutes": 150},
+        "comment": "Турнир по настольному теннису в парке. Есть запасные ракетки и новые мячи.",
+        "participants": [
+            {"user_max_id": "demo_free_501", "user_name": "Борис"},
+            {"user_max_id": "demo_free_502", "user_name": "Светлана"},
+            {"user_max_id": "demo_free_503", "user_name": "Руслан"},
         ],
     },
     {
@@ -328,18 +384,17 @@ def _parse_time(value: str) -> time:
 
 
 def resolve_start(spec: dict[str, Any]) -> datetime:
-    """Время демо-сбора относительно момента запуска."""
+    """Время демо-сбора относительно момента запуска (всегда гарантированно в будущем)."""
     now = local_now()
     if "in_minutes" in spec:
         start = (now + timedelta(minutes=int(spec["in_minutes"]))).replace(second=0, microsecond=0)
         start += timedelta(minutes=(30 - start.minute % 30) % 30)
-        earliest = _parse_time(spec.get("earliest", "08:00"))
-        latest = _parse_time(spec.get("latest", "23:00"))
+        earliest = _parse_time(spec.get("earliest", "09:00"))
+        latest = _parse_time(spec.get("latest", "22:00"))
         fallback = _parse_time(spec.get("fallback", "19:00"))
-        if start.time() > latest:
-            return datetime.combine(start.date() + timedelta(days=1), fallback, tzinfo=settings.tz)
-        if start.time() < earliest:
-            return datetime.combine(start.date(), fallback, tzinfo=settings.tz)
+        if start.time() > latest or start.time() < earliest:
+            target_date = now.date() if start.time() < earliest and now.hour < 8 else now.date() + timedelta(days=1)
+            return datetime.combine(target_date, fallback, tzinfo=settings.tz)
         return start
     day = now.date() + timedelta(days=int(spec.get("day_offset", 0)))
     start = datetime.combine(day, _parse_time(str(spec.get("time", "19:00"))), tzinfo=settings.tz)
@@ -478,157 +533,174 @@ def _resolve_demo_slot_date() -> date:
     return now.date() + timedelta(days=1)
 
 
+COMMERCIAL_DEMO_SPECS = [
+    {
+        "court_title": "Спортивный центр «Локомотив» (Мини-футбол)",
+        "sport_type": "football",
+        "required_players": 6,
+        "price": Decimal("3000.00"),
+        "comment": "Мини-футбол 3×3 на паркете. Ждём 6-го игрока для выкупа зала!",
+        "time_str": "19:30",
+        "players": [
+            ("demo_jury_1", "Артём", 98.0),
+            ("demo_jury_2", "Михаил", 95.0),
+            ("demo_jury_3", "Алексей", 100.0),
+            ("demo_jury_4", "Денис", 96.0),
+            ("demo_jury_5", "Илья", 97.0),
+        ],
+    },
+    {
+        "court_title": "Padel Pro Arena (Петроградка)",
+        "sport_type": "padel",
+        "required_players": 4,
+        "price": Decimal("2800.00"),
+        "comment": "Падел 2×2 для продолжающих. Остался 1 слот, корт выкупается сразу при сборе!",
+        "time_str": "18:00",
+        "players": [
+            ("demo_padel_1", "Ольга", 99.0),
+            ("demo_padel_2", "Кирилл", 96.0),
+            ("demo_padel_3", "Дмитрий", 94.0),
+        ],
+    },
+    {
+        "court_title": "Футбольный манеж «Фабрика Футбола»",
+        "sport_type": "football",
+        "required_players": 10,
+        "price": Decimal("3600.00"),
+        "comment": "Футбол 5×5 на искусственном газоне 4G. Идёт сбор долей на эскроу-счёт.",
+        "time_str": "21:00",
+        "players": [
+            ("demo_ff_1", "Роман", 98.0),
+            ("demo_ff_2", "Глеб", 95.0),
+            ("demo_ff_3", "Виктор", 97.0),
+            ("demo_ff_4", "Андрей", 100.0),
+            ("demo_ff_5", "Максим", 93.0),
+            ("demo_ff_6", "Станислав", 96.0),
+            ("demo_ff_7", "Фёдор", 94.0),
+        ],
+    },
+    {
+        "court_title": "Пляжный центр «Песок»",
+        "sport_type": "volleyball",
+        "required_players": 4,
+        "price": Decimal("2200.00"),
+        "comment": "Пляжный волейбол 2×2 на тёплом кварцевом песке. Ищем 4-го игрока!",
+        "time_str": "19:30",
+        "players": [
+            ("demo_pesok_1", "Алина", 100.0),
+            ("demo_pesok_2", "Вячеслав", 97.0),
+            ("demo_pesok_3", "Ксения", 95.0),
+        ],
+    },
+    {
+        "court_title": "Теннисный клуб «Ладожский»",
+        "sport_type": "tennis",
+        "required_players": 2,
+        "price": Decimal("2000.00"),
+        "comment": "Большой теннис (одиночка или спарринг). Корт хард, организатор внёс свою половину 1000 ₽.",
+        "time_str": "18:00",
+        "players": [
+            ("demo_ten_1", "Георгий", 99.0),
+        ],
+    },
+    {
+        "court_title": "Падел-клуб «Стрела»",
+        "sport_type": "padel",
+        "required_players": 4,
+        "price": Decimal("2400.00"),
+        "comment": "Падел на Лиговском. 2 места свободно, по 600 ₽ с человека.",
+        "time_str": "19:30",
+        "players": [
+            ("demo_str_1", "Валерий", 96.0),
+            ("demo_str_2", "Елена", 98.0),
+        ],
+    },
+]
+
+
 async def seed_demo_escrow_games(session: AsyncSession) -> int:
-    """Создаёт демо-лобби со статусом 5/6 участников на коммерческом корте.
-
-    При сумме аренды 3000 руб. доля составляет 500 руб. с человека.
-    Пять участников внесли доли (2500 руб. собрано).
-    Оставшийся 6-й слот свободен: жюри нажимает одну кнопку оплаты,
-    и Safe Split переводит лобби в статус «Оплачено/Забронировано».
-    """
+    """Создаёт демо-лобби Safe Split на коммерческих кортах."""
     court_ids = await _court_ids_by_title(session)
-    court_title = "Спортивный центр «Локомотив» (Мини-футбол)"
-    court_id = court_ids.get(court_title)
-    if court_id is None:
-        logger.warning("Корт «%s» не найден для создания лобби Safe Split", court_title)
-        return 0
-
-    # Проверяем, есть ли уже активное лобби на этом корте
-    has_active = await session.scalar(
-        select(func.count(Game.id)).where(
-            Game.court_id == court_id,
-            Game.escrow_account_id.is_not(None),
-            Game.status.in_(ACTIVE_GAME_STATUSES),
-            Game.start_time >= active_since(),
-        )
-    )
-    if has_active:
-        return 0
-
     target_day = _resolve_demo_slot_date()
-    wanted_time = datetime.combine(target_day, _parse_time("19:30"), tzinfo=settings.tz)
+    created_total = 0
 
-    candidates = (
-        await session.scalars(
-            select(CourtSlot)
-            .where(
-                CourtSlot.court_id == court_id,
-                CourtSlot.start_time >= utcnow() + SLOT_MIN_LEAD + timedelta(hours=1),
-                CourtSlot.is_booked.is_(False),
+    for spec in COMMERCIAL_DEMO_SPECS:
+        court_title = spec["court_title"]
+        court_id = court_ids.get(court_title)
+        if court_id is None:
+            continue
+
+        has_active = await session.scalar(
+            select(func.count(Game.id)).where(
+                Game.court_id == court_id,
+                Game.escrow_account_id.is_not(None),
+                Game.status.in_(ACTIVE_GAME_STATUSES),
+                Game.start_time >= active_since(),
             )
-            .order_by(CourtSlot.start_time)
         )
-    ).all()
+        if has_active:
+            continue
 
-    if not candidates:
-        logger.warning("Свободный слот для лобби Safe Split на «%s» не найден", court_title)
-        return 0
-
-    slot = min(candidates, key=lambda s: abs((s.start_time - wanted_time).total_seconds()))
-
-    # Убеждаемся, что цена слота ровно 3000 ₽
-    if slot.price != Decimal("3000.00"):
-        slot.price = Decimal("3000.00")
-        await session.commit()
-
-    identities = [
-        Identity(max_user_id="demo_jury_1", name="Артём"),
-        Identity(max_user_id="demo_jury_2", name="Михаил"),
-        Identity(max_user_id="demo_jury_3", name="Алексей"),
-        Identity(max_user_id="demo_jury_4", name="Денис"),
-        Identity(max_user_id="demo_jury_5", name="Илья"),
-    ]
-
-    try:
-        game = await game_service.create_game(
-            session,
-            court_id=court_id,
-            sport_type="football",
-            start_time=None,
-            slot_id=slot.id,
-            required_players=6,
-            comment="Мини-футбол 3×3 на паркете. Ждём 6-го игрока для выкупа зала!",
-            creator=identities[0],
-        )
-
-        # Присоединяем участников 2-5
-        for identity in identities[1:]:
-            await game_service.join_game(session, game.id, identity)
-
-        # Все 5 участников оплачивают свою долю (5 * 500 = 2500 ₽)
-        for identity in identities:
-            await escrow.pay_share(session, game.id, identity, None)
-
-        scores = [98.0, 95.0, 100.0, 96.0, 97.0]
-        for idx, p in enumerate(game.participants):
-            if idx < len(scores):
-                p.reliability_score = scores[idx]
-        for idx, identity in enumerate(identities):
-            db_u = await session.scalar(select(User).where(User.max_user_id == identity.max_user_id))
-            if db_u:
-                db_u.reliability_score = scores[idx]
-                db_u.games_attended = 18 + idx
-        await session.commit()
-
-        logger.info(
-            "Создано Safe Split лобби 5/6: сбор #%s на «%s», собрано 2500/3000 ₽",
-            game.id,
-            court_title,
-        )
-    except DomainError as exc:
-        await session.rollback()
-        logger.warning("Не удалось создать Safe Split лобби: %s", exc.message)
-        return 0
-
-    # Также добавим дополнительное падел-лобби на Петроградке (2/4 игрока) для реалистичности
-    padel_title = "Padel Pro Arena (Петроградка)"
-    padel_id = court_ids.get(padel_title)
-    if padel_id:
-        padel_slot = await session.scalar(
-            select(CourtSlot)
-            .where(
-                CourtSlot.court_id == padel_id,
-                CourtSlot.start_time >= utcnow() + SLOT_MIN_LEAD + timedelta(hours=2),
-                CourtSlot.is_booked.is_(False),
-            )
-            .order_by(CourtSlot.start_time)
-        )
-        if padel_slot:
-            try:
-                p1 = Identity(max_user_id="demo_padel_1", name="Ольга")
-                p2 = Identity(max_user_id="demo_padel_2", name="Кирилл")
-                p_game = await game_service.create_game(
-                    session,
-                    court_id=padel_id,
-                    sport_type="padel",
-                    start_time=None,
-                    slot_id=padel_slot.id,
-                    required_players=4,
-                    comment="Падел 2×2 для продолжающих. Ракетки с собой!",
-                    creator=p1,
+        wanted_time = datetime.combine(target_day, _parse_time(spec.get("time_str", "19:30")), tzinfo=settings.tz)
+        candidates = (
+            await session.scalars(
+                select(CourtSlot)
+                .where(
+                    CourtSlot.court_id == court_id,
+                    CourtSlot.start_time >= utcnow() + SLOT_MIN_LEAD + timedelta(hours=1),
+                    CourtSlot.is_booked.is_(False),
                 )
-                await game_service.join_game(session, p_game.id, p2)
-                share = escrow.share_amount(p_game)
-                await escrow.pay_share(session, p_game.id, p1, share)
-                await escrow.pay_share(session, p_game.id, p2, share)
-            except DomainError:
-                await session.rollback()
+                .order_by(CourtSlot.start_time)
+            )
+        ).all()
+        if not candidates:
+            continue
 
-    return 1
+        slot = min(candidates, key=lambda s: abs((s.start_time - wanted_time).total_seconds()))
+        expected_price = spec["price"]
+        if slot.price != expected_price:
+            slot.price = expected_price
+            await session.commit()
+
+        player_data = spec["players"]
+        identities = [Identity(max_user_id=p[0], name=p[1]) for p in player_data]
+
+        try:
+            game = await game_service.create_game(
+                session,
+                court_id=court_id,
+                sport_type=spec["sport_type"],
+                start_time=None,
+                slot_id=slot.id,
+                required_players=spec["required_players"],
+                comment=spec["comment"],
+                creator=identities[0],
+            )
+            for identity in identities[1:]:
+                await game_service.join_game(session, game.id, identity)
+            for identity in identities:
+                await escrow.pay_share(session, game.id, identity, None)
+
+            for idx, p in enumerate(game.participants):
+                if idx < len(player_data):
+                    p.reliability_score = player_data[idx][2]
+            for idx, identity in enumerate(identities):
+                db_u = await session.scalar(select(User).where(User.max_user_id == identity.max_user_id))
+                if db_u:
+                    db_u.reliability_score = player_data[idx][2]
+                    db_u.games_attended = 15 + idx
+            await session.commit()
+            created_total += 1
+            logger.info("Создан сбор Safe Split #%s на «%s»", game.id, court_title)
+        except DomainError as exc:
+            await session.rollback()
+            logger.warning("Не удалось создать Safe Split на «%s»: %s", court_title, exc.message)
+
+    return created_total
 
 
 async def seed_demo_games(session: AsyncSession) -> int:
     """Создаёт открытые бесплатные сборы на дворовых спотах."""
-    has_active = await session.scalar(
-        select(func.count(Game.id)).where(
-            Game.escrow_account_id.is_(None),
-            Game.status.in_(ACTIVE_GAME_STATUSES),
-            Game.start_time >= active_since(),
-        )
-    )
-    if has_active:
-        return 0
-
     court_ids = await _court_ids_by_title(session)
     created = 0
 
@@ -636,6 +708,17 @@ async def seed_demo_games(session: AsyncSession) -> int:
         court_id = court_ids.get(spec["court_title"])
         participants = spec.get("participants") or []
         if court_id is None or not participants:
+            continue
+
+        has_active = await session.scalar(
+            select(func.count(Game.id)).where(
+                Game.court_id == court_id,
+                Game.escrow_account_id.is_(None),
+                Game.status.in_(ACTIVE_GAME_STATUSES),
+                Game.start_time >= active_since(),
+            )
+        )
+        if has_active:
             continue
 
         required = int(spec["required_players"])
