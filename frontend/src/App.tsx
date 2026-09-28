@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
-import { CalendarDays, LocateFixed, MapPinPlus, RefreshCw } from 'lucide-react';
+import { CalendarDays, Clock, LocateFixed, MapPinPlus, RefreshCw } from 'lucide-react';
 import { api, errorMessage, spotsService } from './api/client';
+import { weatherService, type WeatherInfo } from './api/weatherService';
 import AddCourtModal from './components/AddCourtModal';
+
+function formatCurrentDateTime(d: Date): string {
+  const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+  const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  const dayName = days[d.getDay()];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${dayName}, ${day} ${month} · ${hours}:${mins}`;
+}
 import CourtDetailsSheet from './components/CourtDetailsSheet';
 import CreateGameModal from './components/CreateGameModal';
 import FiltersBar from './components/FiltersBar';
@@ -73,6 +85,25 @@ export default function App() {
   const [refreshToken, setRefreshToken] = useState(0);
   const [map, setMap] = useState<L.Map | null>(null);
   const [sortByDistance, setSortByDistance] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  const [topWeather, setTopWeather] = useState<WeatherInfo | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 10_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const lat = userLocation ? userLocation[0] : 59.9386;
+    const lon = userLocation ? userLocation[1] : 30.3141;
+    weatherService.getWeather(lat, lon).then((w) => {
+      if (!cancelled) setTopWeather(w);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userLocation]);
 
   const startCourtId = useRef<number | null>(getStartCourtId());
   const initialViewDone = useRef(false);
@@ -537,6 +568,17 @@ export default function App() {
       />
 
       <div className="pt-safe pointer-events-none absolute inset-x-0 top-0 z-[1100]">
+        <div className="pointer-events-auto mx-3 mb-1.5 flex items-center justify-between rounded-xl border border-white/60 bg-white/80 px-2.5 py-1 text-[11px] shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-[#15171C]/80 md:max-w-[420px]">
+          <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-200">
+            <Clock className="h-3 w-3 text-accent shrink-0" />
+            <span>{formatCurrentDateTime(now)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-200">
+            <span>{topWeather?.icon ?? '⛅'}</span>
+            <span>{topWeather ? `${topWeather.temp_c > 0 ? '+' : ''}${topWeather.temp_c}°C, ${topWeather.description}` : 'Погода…'}</span>
+          </div>
+        </div>
+
         <div className="pointer-events-auto mx-3 flex items-center gap-2 md:max-w-[420px]">
           <div className="glass flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-3 py-2 shadow-float">
             <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-9 w-9 shrink-0 rounded-xl" />

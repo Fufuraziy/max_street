@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CircleCheck, Clock, Crown, LogOut, MapPin, ShieldCheck, UserPlus, Zap } from 'lucide-react';
 import { spotsService } from '../api/spotsService';
+import { weatherService, type WeatherInfo } from '../api/weatherService';
 import { GAME_STATUS_STYLES, PAYMENT_STATUS_STYLES, SPORTS } from '../lib/constants';
 import {
   amountDue,
@@ -108,6 +109,19 @@ export default function GameCard({
   const [checkingIn, setCheckingIn] = useState(false);
   const [isCheckedInLocal, setIsCheckedInLocal] = useState(false);
   const [checkInMsg, setCheckInMsg] = useState<string | null>(null);
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const lat = court?.latitude ?? 59.9386;
+    const lon = court?.longitude ?? 30.3141;
+    weatherService.getWeather(lat, lon, game.start_time).then((w) => {
+      if (!cancelled) setWeather(w);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [court?.latitude, court?.longitude, game.start_time]);
 
   const isCheckedIn = Boolean(me?.checked_in || isCheckedInLocal);
 
@@ -172,6 +186,27 @@ export default function GameCard({
               <MapPin className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{court.title}</span>
             </button>
+          )}
+          {weather && (
+            <div
+              className={`mt-2 flex items-center justify-between rounded-xl px-2.5 py-1 text-xs ${
+                weather.is_rain
+                  ? 'border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
+                  : 'bg-slate-100/90 text-slate-700 dark:bg-white/5 dark:text-slate-300'
+              }`}
+            >
+              <span className="flex items-center gap-1.5 font-medium">
+                <span className="text-sm">{weather.icon}</span>
+                <span>
+                  Погода на матч: <b className="font-semibold">{weather.temp_c > 0 ? `+${weather.temp_c}` : weather.temp_c}°C</b>, {weather.description.toLowerCase()}
+                </span>
+              </span>
+              {weather.precipitation_chance > 20 && (
+                <span className="ml-1 shrink-0 rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-white/10 dark:text-amber-200">
+                  осадки {weather.precipitation_chance}%
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>

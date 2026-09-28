@@ -1,14 +1,15 @@
 from fastapi import APIRouter
 
-from api.v1 import bot_webhook, courts, defects, games, mock
+from api.v1 import bot_webhook, courts, defects, games, mock, weather
 
-# Базовый роутер со всеми модулями (courts, games, defects, bot, mock)
+# Базовый роутер со всеми модулями (courts, games, defects, bot, mock, weather)
 core_router = APIRouter()
 core_router.include_router(courts.router)
 core_router.include_router(games.router)
 core_router.include_router(defects.router)
 core_router.include_router(bot_webhook.router)
 core_router.include_router(mock.router)
+core_router.include_router(weather.router)
 
 # Канонический префикс /api/v1
 api_v1_router = APIRouter(prefix="/api/v1")

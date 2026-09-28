@@ -46,6 +46,7 @@ from models.enums import (
 from services import courts as court_service
 from services import escrow
 from services import games as game_service
+from services import weather_service
 
 logger = logging.getLogger(__name__)
 
@@ -731,13 +732,10 @@ class MaxBotService:
         miniapp_url = self.web_link()
         text = (
             f"👋 Привет, {first_name}!\n\n"
-            "<b>MAX Стрит</b> — интерактивная карта дворовых спортплощадок и сборы на игры в Санкт-Петербурге.\n\n"
-            f"🌐 Мини-приложение: {miniapp_url}\n\n"
-            "🗺 <b>Площадки рядом:</b> покрытие, освещение и кто сегодня играет\n"
-            "👥 <b>Сборы на игры:</b> 3×3, 5×5, падел или теннис. Когда кворум собран — бот пришлёт уведомление\n"
-            "💳 <b>Safe Split:</b> сплит-оплата аренды коммерческих кортов через безопасный эскроу-счёт\n"
-            "🛠 <b>Народный контроль:</b> заявка о сломанном кольце или яме уйдёт в районные службы\n\n"
-            "/find — ближайшие сборы · /my — мои игры · /near — площадки рядом · /help — помощь"
+            "Добро пожаловать в <b>MAX Стрит</b> — находите спортплощадки Санкт-Петербурга, "
+            "собирайтесь на матчи дворового спорта и бронируйте корты с безопасным сплитом.\n\n"
+            f"🌐 Открыть мини-приложение: {miniapp_url}\n\n"
+            "Выберите нужное действие кнопками ниже 👇"
         )
         buttons = []
         app_btn = self.app_button("🗺 Открыть карту площадок")
@@ -806,11 +804,13 @@ class MaxBotService:
             names = ", ".join(f"{esc(p.user_name)} {'✅' if p.has_paid else '⏳'}" for p in game.participants) or "—"
         else:
             names = ", ".join(esc(p.user_name) for p in game.participants) or "—"
+        weather_summary = weather_service.get_forecast_summary_sync(game.court.latitude, game.court.longitude, game.start_time)
         lines = [
             f"{sport_emoji(game.sport_type)} <b>{esc(sport_label(game.sport_type))} · {format_label(game.sport_type, game.required_players)}</b>",
             f"🕖 {time_range(game)}",
             f"📍 {esc(game.court.title)}",
             f"      {esc(game.court.address)}",
+            f"⛅ Погода: {esc(weather_summary)}",
             f"👥 {game.current_players}/{game.required_players} · {GAME_STATUS_LABELS.get(game.status, game.status)}",
             f"Игроки: {names}",
         ]

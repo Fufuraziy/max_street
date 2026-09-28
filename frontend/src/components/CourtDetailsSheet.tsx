@@ -273,6 +273,7 @@ export default function CourtDetailsSheet({
             <GameCard
               key={game.id}
               game={game}
+              court={info}
               identity={identity}
               busy={busyGameId === game.id}
               onJoin={() => onJoin(game.id)}
