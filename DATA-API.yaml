@@ -1,0 +1,295 @@
+config_version: "1.0"
+team_name: "Bossuslugi team"
+service_name: "MAX Spot"
+base_url: "https://max-spot.duckdns.org:8443/api/v1"
+docs_url: "https://max-spot.duckdns.org:8443/api/docs"
+openapi_url: "https://max-spot.duckdns.org:8443/api/openapi.json"
+
+checks:
+  - id: "health_check"
+    name: "Healthcheck / Статус сервиса"
+    method: "GET"
+    path: "/health"
+    role: "guest"
+    headers:
+      Accept: "application/json"
+    expected_status: 200
+    expected_format: "application/json"
+    description: "Проверка работоспособности сервиса, подключения к PostgreSQL и статуса бота MAX"
+    response_schema:
+      type: "object"
+      required:
+        - "status"
+        - "database"
+        - "bot_mode"
+      properties:
+        status:
+          type: "string"
+          example: "ok"
+        database:
+          type: "string"
+          example: "ok"
+        bot_mode:
+          type: "string"
+          example: "polling"
+
+  - id: "courts_list"
+    name: "Получение списка площадок (16 площадок Санкт-Петербурга)"
+    method: "GET"
+    path: "/courts"
+    role: "guest"
+    headers:
+      Accept: "application/json"
+    expected_status: 200
+    expected_format: "application/json"
+    description: "Список 16 верифицированных спортплощадок Санкт-Петербурга с координатами, покрытиями и ценами"
+    response_schema:
+      type: "array"
+      items:
+        type: "object"
+        required:
+          - "id"
+          - "title"
+          - "address"
+          - "sport_types"
+          - "latitude"
+          - "longitude"
+        properties:
+          id:
+            type: "integer"
+            example: 7
+          title:
+            type: "string"
+            description: "Название спортивного объекта (name)"
+            example: "Спортивный центр «Локомотив» (Мини-футбол)"
+          name:
+            type: "string"
+            description: "Алиас названия объекта"
+            example: "Спортивный центр «Локомотив» (Мини-футбол)"
+          address:
+            type: "string"
+            example: "ул. Константина Заслонова, 23/4, Санкт-Петербург"
+          sport_types:
+            type: "array"
+            items:
+              type: "string"
+            example:
+              - "football"
+          sport_type:
+            type: "string"
+            description: "Основной вид спорта площадки"
+            example: "football"
+          surface_type:
+            type: "string"
+            example: "parquet"
+          price_from:
+            type: "number"
+            description: "Минимальная цена слота аренды (price_per_hour)"
+            example: 3000.0
+          price_per_hour:
+            type: "number"
+            description: "Алиас цены аренды в час"
+            example: 3000.0
+          latitude:
+            type: "number"
+            example: 59.9176
+          longitude:
+            type: "number"
+            example: 30.3491
+          has_lighting:
+            type: "boolean"
+            example: true
+          is_indoor:
+            type: "boolean"
+            example: true
+          is_commercial:
+            type: "boolean"
+            example: true
+          rating:
+            type: "number"
+            example: 4.8
+
+  - id: "court_and_lobby_details"
+    name: "Получение информации о конкретной площадке и активном лобби (сценарий «Локомотив» 5/6)"
+    method: "GET"
+    path: "/games/12"
+    aliases:
+      - "/courts/7"
+      - "/courts/1"
+      - "/lobbies/1"
+    role: "guest"
+    headers:
+      Accept: "application/json"
+    expected_status: 200
+    expected_format: "application/json"
+    description: "Карточка активного лобби Safe Split: собрано 5 из 6 участников, 2 500 из 3 000 руб."
+    response_schema:
+      type: "object"
+      required:
+        - "id"
+        - "court_id"
+        - "current_players"
+        - "required_players"
+        - "total_cost"
+        - "collected_amount"
+        - "status"
+      properties:
+        id:
+          type: "integer"
+          description: "ID сбора (лобби)"
+          example: 12
+        court_id:
+          type: "integer"
+          description: "ID площадки «Локомотив»"
+          example: 7
+        current_players:
+          type: "integer"
+          description: "Текущее количество участников"
+          example: 5
+        required_players:
+          type: "integer"
+          description: "Максимальное количество участников (max_players)"
+          example: 6
+        max_players:
+          type: "integer"
+          description: "Алиас требуемого числа участников"
+          example: 6
+        total_cost:
+          type: "number"
+          description: "Целевая сумма аренды (target_amount)"
+          example: 3000.0
+        target_amount:
+          type: "number"
+          description: "Алиас целевой суммы аренды"
+          example: 3000.0
+        collected_amount:
+          type: "number"
+          description: "Собранная сумма на эскроу-счёте"
+          example: 2500.0
+        status:
+          type: "string"
+          description: "Статус лобби ('recruiting' — идёт набор)"
+          example: "recruiting"
+        share_amount:
+          type: "number"
+          description: "Доля одного игрока (500 руб.)"
+          example: 500.0
+        escrow_account_id:
+          type: "string"
+          example: "ESC-3357-F640"
+        spots_left:
+          type: "integer"
+          example: 1
+
+  - id: "safe_split_pay"
+    name: "Внесение доли в сборе Safe Split (Mock оплаты 500 ₽)"
+    method: "POST"
+    path: "/games/12/pay"
+    aliases:
+      - "/escrow/pay"
+      - "/games/{id}/pay"
+    role: "player"
+    headers:
+      Accept: "application/json"
+      Content-Type: "application/json"
+    description: "Внесение доли через эскроу (mock СБП). При взносе 6-го участника сбор закрывается на 100% и выкупает корт"
+    request_body:
+      user_max_id: "demo_jury_6"
+      user_id: "demo_jury_6"
+      user_name: "Жюри"
+      amount: 500.0
+      payment_method: "sbp_mock"
+    expected_status: 200
+    expected_format: "application/json"
+    response_schema:
+      type: "object"
+      required:
+        - "booked"
+        - "message"
+        - "game"
+        - "transaction"
+      properties:
+        booked:
+          type: "boolean"
+          description: "True при достижении 100% сбора и автоматическом выкупе корта"
+          example: true
+        booking_reference:
+          type: "string"
+          description: "Номер бронирования у арендодателя"
+          example: "BOOK-LOKO-701"
+        message:
+          type: "string"
+          example: "Корт успешно забронирован! Номер брони: #BOOK-LOKO-701"
+        game:
+          type: "object"
+        transaction:
+          type: "object"
+          required:
+            - "reference"
+            - "amount"
+            - "method"
+          properties:
+            reference:
+              type: "string"
+              example: "SBP-F640-1092"
+            amount:
+              type: "number"
+              example: 500.0
+            method:
+              type: "string"
+              example: "sbp_mock"
+
+  - id: "mock_escrow_expire"
+    name: "Тестовый эндпоинт отмены/возврата (указанный на слайде 01)"
+    method: "POST"
+    path: "/mock/escrow/12/expire"
+    aliases:
+      - "/mock/escrow/1/expire"
+      - "/mock/escrow/{id}/expire"
+    role: "admin / system"
+    headers:
+      Accept: "application/json"
+      Content-Type: "application/json"
+    description: "Мгновенная симуляция истечения дедлайна сбора: полный возврат всех внесённых средств (100% манибэк)"
+    expected_status: 200
+    expected_format: "application/json"
+    response_schema:
+      type: "object"
+      required:
+        - "game"
+        - "refunds"
+        - "message"
+      properties:
+        message:
+          type: "string"
+          example: "Сбор отменён, возвратов: 5"
+        refunds:
+          type: "array"
+          items:
+            type: "object"
+            required:
+              - "user_max_id"
+              - "user_name"
+              - "amount"
+            properties:
+              user_max_id:
+                type: "string"
+                example: "demo_jury_1"
+              user_name:
+                type: "string"
+                example: "Алексей Смирнов"
+              amount:
+                type: "number"
+                example: 500.0
+        game:
+          type: "object"
+          properties:
+            id:
+              type: "integer"
+              example: 12
+            status:
+              type: "string"
+              example: "cancelled"
+            payment_status:
+              type: "string"
+              example: "refunded"
