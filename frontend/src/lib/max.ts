@@ -298,7 +298,7 @@ export async function shareLink(text: string, link: string): Promise<'shared' | 
   }
   if (typeof navigator.share === 'function') {
     try {
-      await navigator.share({ title: 'MAX Стрит', text, url: link });
+      await navigator.share({ title: 'MAX Спот', text, url: link });
       return 'shared';
     } catch (error) {
       if ((error as DOMException)?.name === 'AbortError') return 'shared';

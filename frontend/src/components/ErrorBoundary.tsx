@@ -13,7 +13,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, Er
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error('MAX Стрит: необработанная ошибка интерфейса', error, info.componentStack);
+    console.error('MAX Спот: необработанная ошибка интерфейса', error, info.componentStack);
   }
 
   render() {
