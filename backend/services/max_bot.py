@@ -54,6 +54,16 @@ UPDATE_TYPES = ["message_created", "message_callback", "bot_started"]
 MAX_TEXT_LENGTH = 4000
 POLL_TIMEOUT_SECONDS = 30
 
+# Команды для подсказок при вводе «/» в чате с ботом (регистрируются через PATCH /me/commands)
+BOT_COMMANDS = [
+    {"name": "start", "description": "Главное меню"},
+    {"name": "find", "description": "Найти сбор: /find футбол"},
+    {"name": "near", "description": "Площадки рядом со мной"},
+    {"name": "my", "description": "Мои игры"},
+    {"name": "map", "description": "Открыть карту площадок"},
+    {"name": "help", "description": "Как пользоваться ботом"},
+]
+
 Button = dict[str, Any]
 Action = dict[str, Any]
 
@@ -192,6 +202,9 @@ class MaxApiClient:
     async def get_me(self) -> dict[str, Any]:
         return await self.request("GET", "/me")
 
+    async def set_commands(self, commands: list[dict[str, str]]) -> dict[str, Any]:
+        return await self.request("PATCH", "/me/commands", json={"commands": commands})
+
     async def send_message(
         self, body: dict[str, Any], *, chat_id: int | None = None, user_id: int | None = None
     ) -> dict[str, Any]:
@@ -247,6 +260,7 @@ class MaxBotService:
             return
         self.client = MaxApiClient(self.cfg.max_bot_token, self.cfg.max_api_base_url)
         await self._load_bot_info()
+        await self._register_commands()
         if self.mode == "webhook":
             await self._setup_webhook()
         elif self.mode == "polling":
@@ -270,6 +284,21 @@ class MaxBotService:
             logger.info("Бот MAX подключён: %s (@%s, id=%s)", self.bot_name, self.bot_username, self.bot_id)
         except (MaxApiError, httpx.HTTPError) as exc:
             logger.error("GET /me завершился ошибкой: %s", exc)
+
+    async def _register_commands(self) -> None:
+        """Регистрирует список команд, чтобы MAX показывал подсказки при вводе «/»."""
+        assert self.client is not None
+        current = [
+            {"name": c.get("name"), "description": c.get("description")}
+            for c in (self.bot_info or {}).get("commands") or []
+        ]
+        if current == BOT_COMMANDS:
+            return
+        try:
+            await self.client.set_commands(BOT_COMMANDS)
+            logger.info("Команды бота зарегистрированы: %s", ", ".join(f"/{c['name']}" for c in BOT_COMMANDS))
+        except (MaxApiError, httpx.HTTPError) as exc:
+            logger.error("PATCH /me/commands завершился ошибкой: %s", exc)
 
     async def _setup_webhook(self) -> None:
         assert self.client is not None
