@@ -20,7 +20,7 @@ from api.v1 import api_prefix_router, api_v1_router, root_api_router
 from core.config import settings
 from core.database import SessionLocal, create_tables, engine, wait_for_db
 from core.errors import DomainError
-from services import escrow
+from services import escrow, weather_service
 from services.max_bot import bot_service
 from services.seeder import run_seed
 
@@ -120,11 +120,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await run_seed(session)
     await bot_service.start()
     watchdog = asyncio.create_task(escrow_watchdog(), name="escrow-watchdog")
+    weather_task = asyncio.create_task(weather_service.weather_refresher(), name="weather-refresher")
     logger.info("MAX Стрит запущен, режим бота: %s, платежи: %s", bot_service.mode, settings.payment_mode)
     yield
     watchdog.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await watchdog
+    await weather_service.stop_task(weather_task)
     await bot_service.stop()
     await engine.dispose()
 

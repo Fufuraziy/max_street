@@ -839,7 +839,11 @@ class MaxBotService:
             f"🕖 {time_range(game)}",
             f"📍 {esc(game.court.title)}",
             f"      {esc(game.court.address)}",
-            f"⛅ Погода: {esc(weather_summary)}",
+        ]
+        # Прогноз есть только в пределах горизонта Open-Meteo — иначе строку не показываем.
+        if weather_summary:
+            lines.append(f"⛅ Погода: {esc(weather_summary)}")
+        lines += [
             f"👥 {game.current_players}/{game.required_players} · {GAME_STATUS_LABELS.get(game.status, game.status)}",
             f"Игроки: {names}",
         ]
