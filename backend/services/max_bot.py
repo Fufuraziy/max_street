@@ -18,6 +18,7 @@ import contextlib
 import copy
 import html
 import logging
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -53,6 +54,7 @@ logger = logging.getLogger(__name__)
 UPDATE_TYPES = ["message_created", "message_callback", "bot_started"]
 MAX_TEXT_LENGTH = 4000
 POLL_TIMEOUT_SECONDS = 30
+SEEN_UPDATES_LIMIT = 1000  # сколько последних событий помнить для защиты от повторов
 
 # Команды для подсказок при вводе «/» в чате с ботом (регистрируются через PATCH /me/commands)
 BOT_COMMANDS = [
@@ -251,6 +253,7 @@ class MaxBotService:
         self.bot_info: dict[str, Any] | None = None
         self._open_app_enabled = cfg.max_use_open_app_button
         self._polling_task: asyncio.Task[None] | None = None
+        self._seen_updates: OrderedDict[str, None] = OrderedDict()
 
     # --- жизненный цикл -----------------------------------------------------
 
@@ -448,6 +451,15 @@ class MaxBotService:
 
     async def handle_update(self, update: dict[str, Any], *, deliver: bool = True) -> list[Action]:
         """Обрабатывает Update из webhook или long polling. Возвращает список исходящих действий."""
+        key = self._update_key(update)
+        if key is not None:
+            if key in self._seen_updates:
+                logger.info("Повторное событие %s пропущено", key)
+                return []
+            self._seen_updates[key] = None
+            if len(self._seen_updates) > SEEN_UPDATES_LIMIT:
+                self._seen_updates.popitem(last=False)
+        logger.info("Событие MAX: %s", key or update.get("update_type"))
         try:
             actions = await self._dispatch(update)
         except Exception:
@@ -456,6 +468,22 @@ class MaxBotService:
         if deliver:
             await self.deliver_all(actions)
         return actions
+
+    @staticmethod
+    def _update_key(update: dict[str, Any]) -> str | None:
+        """Уникальный ключ события: id сообщения, id нажатия кнопки или пользователь + время."""
+        update_type = update.get("update_type")
+        if update_type == "message_created":
+            mid = ((update.get("message") or {}).get("body") or {}).get("mid")
+            return f"message:{mid}" if mid else None
+        if update_type == "message_callback":
+            callback_id = (update.get("callback") or {}).get("callback_id")
+            return f"callback:{callback_id}" if callback_id else None
+        if update_type == "bot_started":
+            user_id = (update.get("user") or {}).get("user_id")
+            timestamp = update.get("timestamp")
+            return f"bot_started:{user_id}:{timestamp}" if user_id and timestamp else None
+        return None
 
     async def _dispatch(self, update: dict[str, Any]) -> list[Action]:
         update_type = update.get("update_type")
