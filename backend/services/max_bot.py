@@ -254,6 +254,8 @@ class MaxBotService:
         self._open_app_enabled = cfg.max_use_open_app_button
         self._polling_task: asyncio.Task[None] | None = None
         self._seen_updates: OrderedDict[str, None] = OrderedDict()
+        # max_user_id организатора → id сбора, для которого он сейчас присылает ссылку на чат
+        self._awaiting_chat_link: dict[str, int] = {}
 
     # --- жизненный цикл -----------------------------------------------------
 
@@ -516,6 +518,9 @@ class MaxBotService:
                 if lat is not None and lon is not None:
                     return [self._send(target, await self._nearby_view(session, float(lat), float(lon)))]
 
+        if not text.startswith("/") and (chat_link := game_service.extract_max_link(text)):
+            return await self._on_chat_link(session, identity, target, chat_link)
+
         command, _, argument = text.partition(" ")
         command = command.lower().split("@", 1)[0]
         argument = argument.strip()
@@ -580,6 +585,8 @@ class MaxBotService:
                         if joined.confirmed
                         else self._joined_actions(joined.game, identity)
                     )
+            elif action == "chat":
+                view = await self._chat_view(session, int(argument), identity)
             elif action == "pay":
                 paid = await escrow.pay_share(session, int(argument), identity, None)
                 view = self._pay_result_view(paid)
@@ -612,6 +619,12 @@ class MaxBotService:
             self._log_quorum(game)
         actions = self._confirmed_actions(game) if confirmed else self._joined_actions(game, joiner)
         await self.deliver_all(actions)
+
+    async def notify_chat_linked(self, game_id: int, organizer_max_id: str) -> None:
+        async with SessionLocal() as session:
+            game = await game_service.get_game(session, game_id)
+        self._awaiting_chat_link.pop(organizer_max_id, None)
+        await self.deliver_all(self._chat_linked_actions(game, exclude=organizer_max_id))
 
     @staticmethod
     def _log_quorum(game: Game) -> None:
@@ -751,7 +764,7 @@ class MaxBotService:
             [
                 [
                     self.app_button("📍 Открыть площадку", f"court_{game.court_id}"),
-                    self.app_button("💬 Чат сбора", f"court_{game.court_id}"),
+                    self._chat_button(game),
                 ],
                 [
                     link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude)),
@@ -775,7 +788,7 @@ class MaxBotService:
             [
                 [
                     self.app_button("📍 Открыть площадку", f"court_{game.court_id}"),
-                    self.app_button("💬 Чат сбора", f"court_{game.court_id}"),
+                    self._chat_button(game),
                 ],
                 [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude)), cb("🙋 Мои игры", "my")],
             ],
@@ -807,6 +820,74 @@ class MaxBotService:
             head += "\nНабор снова открыт."
         view = View(head + "\n\n" + self._game_card(game), [[self.app_button("📍 Открыть площадку", f"court_{game.court_id}")]])
         return [self._send_to_user(game.creator_max_id, view)]
+
+    # --- чат сбора ------------------------------------------------------------
+
+    @staticmethod
+    def _chat_button(game: Game, text: str = "💬 Чат сбора") -> Button:
+        """Ссылка в групповой чат MAX, а пока его нет — кнопка с инструкцией (организатору) или статусом."""
+        return link(text, game.chat_link) if game.chat_link else cb(text, f"chat:{game.id}")
+
+    async def _chat_view(self, session: AsyncSession, game_id: int, identity: Identity) -> View:
+        game = await game_service.get_game(session, game_id)
+        back = [cb("🙋 Мои игры", "my"), cb("🏠 В меню", "menu")]
+        if game.chat_link:
+            return View(
+                f"💬 Чат сбора: {sport_emoji(game.sport_type)} {esc(sport_label(game.sport_type))}, {esc(short_datetime(game.start_time))}",
+                [[link("💬 Перейти в чат сбора", game.chat_link)], back],
+            )
+        if game.creator_max_id != identity.max_user_id:
+            return View(
+                "💬 Организатор ещё не создал чат сбора. Как только он пришлёт ссылку, бот сразу перешлёт её вам.",
+                [back],
+            )
+        self._awaiting_chat_link[identity.max_user_id] = game.id
+        title = f"{sport_label(game.sport_type)} {short_datetime(game.start_time)} · {game.court.title}"[:60]
+        return View(
+            "💬 <b>Создайте чат сбора в MAX</b> — бот разошлёт ссылку всем участникам.\n\n"
+            "1. Создайте в MAX новый групповой чат.\n"
+            f"2. Назовите его, например: <code>{esc(title)}</code>\n"
+            "3. В настройках чата скопируйте ссылку-приглашение (https://max.ru/…).\n"
+            "4. Пришлите эту ссылку сюда одним сообщением.",
+            [back],
+        )
+
+    async def _on_chat_link(
+        self, session: AsyncSession, identity: Identity, target: dict[str, Any], chat_link: str
+    ) -> list[Action]:
+        game_id = self._awaiting_chat_link.get(identity.max_user_id)
+        if game_id is None:
+            game = await game_service.latest_game_without_chat(session, identity.max_user_id)
+            if game is None:
+                return [self._send(target, View(
+                    "🤔 Не нашёл вашего активного сбора без чата. Ссылку на чат может прислать организатор сбора.",
+                    [[cb("🙋 Мои игры", "my"), cb("🏠 В меню", "menu")]],
+                ))]
+            game_id = game.id
+        try:
+            game = await game_service.set_chat_link(session, game_id, identity, chat_link)
+        except DomainError as exc:
+            return [self._send(target, View(f"⚠️ {esc(exc.message)}", [[cb("🙋 Мои игры", "my")]]))]
+        self._awaiting_chat_link.pop(identity.max_user_id, None)
+        others = sum(1 for p in game.participants if p.user_max_id.isdigit() and p.user_max_id != identity.max_user_id)
+        confirmation = View(
+            f"✅ Чат привязан к сбору. Ссылку получили участники: {others}.\n\n" + self._game_card(game),
+            [[link("💬 Перейти в чат сбора", game.chat_link)], [cb("🙋 Мои игры", "my"), cb("🏠 В меню", "menu")]],
+        )
+        return [self._send(target, confirmation), *self._chat_linked_actions(game, exclude=identity.max_user_id)]
+
+    def _chat_linked_actions(self, game: Game, exclude: str | None = None) -> list[Action]:
+        if not game.chat_link:
+            return []
+        view = View(
+            "💬 <b>Организатор создал чат сбора</b> — договаривайтесь о деталях там.\n\n" + self._game_card(game),
+            [[link("💬 Перейти в чат сбора", game.chat_link)], [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")]],
+        )
+        return [
+            self._send_to_user(p.user_max_id, view)
+            for p in game.participants
+            if p.user_max_id.isdigit() and p.user_max_id != exclude
+        ]
 
     # --- экраны бота ----------------------------------------------------------
 
@@ -845,7 +926,8 @@ class MaxBotService:
             "/near — площадки рядом с вами (нужна геолокация)\n"
             "/map — открыть карту в мини-приложении\n\n"
             "Можно написать и обычным текстом, например «хочу в футбол»: бот подберёт сборы.\n"
-            "В мини-приложении создаются свои сборы и отправляются заявки о поломках на площадках.\n\n"
+            "В мини-приложении создаются свои сборы и отправляются заявки о поломках на площадках.\n"
+            "Организатор может создать групповой чат сбора в MAX и прислать сюда ссылку-приглашение: бот разошлёт её участникам.\n\n"
             "💳 Аренда корта оплачивается через безопасный сбор MAX Escrow: каждый вносит только свою долю, "
             "деньги уходят арендодателю, когда собрано 100%. Если сбор не наберётся к дедлайну, деньги вернутся автоматически."
         )
@@ -1000,6 +1082,9 @@ class MaxBotService:
                     [cb(f"💳 Внести долю {format_rub(escrow.share_amount(game))}: {sport_emoji(game.sport_type)} "
                         f"{short_datetime(game.start_time)}", f"pay:{game.id}")]
                 )
+            if game.chat_link or game.creator_max_id == identity.max_user_id:
+                label = "💬 Чат" if game.chat_link else "💬 Создать чат"
+                buttons.append([self._chat_button(game, f"{label}: {sport_emoji(game.sport_type)} {short_datetime(game.start_time)}")])
             if game.status == GameStatus.BOOKED:
                 buttons.append([cb(f"🎫 Бронь {game.booking_reference}", f"court:{game.court_id}")])
             else:
@@ -1051,7 +1136,12 @@ class MaxBotService:
         else:
             lines.append("Сборов пока нет. Создайте первый в мини-приложении.")
         buttons.append([self.app_button("🗺 Открыть в мини-приложении", f"court_{court.id}")])
-        buttons.append([link("🧭 Маршрут", route_url(court.latitude, court.longitude))])
+        buttons.append(
+            [
+                link("🧭 Маршрут", route_url(court.latitude, court.longitude)),
+                link("🌐 Сайт", court.website) if court.website else None,
+            ]
+        )
         buttons.append([cb("◀️ Назад к сборам", "find"), cb("🏠 Главное меню", "menu")])
         return View("\n".join(lines), buttons)
 
@@ -1088,7 +1178,7 @@ class MaxBotService:
             )
             buttons.append([cb(f"💳 Внести долю {format_rub(escrow.share_amount(game))} (тест СБП)", f"pay:{game.id}")])
         buttons += [
-            [self.app_button("📍 Открыть площадку", f"court_{game.court_id}")],
+            [self.app_button("📍 Открыть площадку", f"court_{game.court_id}"), self._chat_button(game)],
             [link("🧭 Маршрут", route_url(game.court.latitude, game.court.longitude))],
             [cb("↩️ Выйти из сбора", f"leave:{game.id}")],
             [cb("◀️ Назад к сборам", "find"), cb("🏠 В главное меню", "menu")],

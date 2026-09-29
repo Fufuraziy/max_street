@@ -37,6 +37,7 @@ class Court(Base):
     is_commercial: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     rating: Mapped[float] = mapped_column(Float, default=0.0)
     description: Mapped[str] = mapped_column(Text, default="")
+    website: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     games: Mapped[list[Game]] = relationship(

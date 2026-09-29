@@ -42,6 +42,7 @@ FIELD_LABELS = {
     "start_time": "Время начала",
     "required_players": "Количество игроков",
     "comment": "Комментарий",
+    "website": "Сайт",
     "description": "Описание",
     "creator_name": "Имя",
     "user_name": "Имя",

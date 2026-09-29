@@ -41,6 +41,14 @@ class PlayerRequest(BaseModel):
     username: Username = None
 
 
+class ChatLinkRequest(BaseModel):
+    """Организатор привязывает к сбору групповой чат MAX."""
+
+    user_max_id: MaxUserId
+    user_name: PersonName | None = None
+    chat_link: str = Field(min_length=10, max_length=300, description="Ссылка-приглашение в чат MAX: https://max.ru/…")
+
+
 class PayRequest(BaseModel):
     """Взнос доли участника на эскроу-счёт (тестовая оплата через СБП)."""
 
@@ -76,6 +84,7 @@ class GameRead(BaseModel):
     current_players: int
     status: str
     comment: str
+    chat_link: str | None = None
     created_at: datetime
     participants: list[ParticipantRead] = Field(default_factory=list)
     slot_id: int | None = None

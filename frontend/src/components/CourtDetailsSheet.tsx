@@ -3,6 +3,7 @@ import {
   CalendarDays,
   CircleCheck,
   FileText,
+  Globe,
   Layers,
   Lightbulb,
   LightbulbOff,
@@ -28,10 +29,16 @@ import {
   hexToRgba,
   timeAgo,
 } from '../lib/format';
+import { openExternalLink } from '../lib/max';
 import { reviewsStore, type CourtReview } from '../lib/reviewsStore';
 import type { Court, CourtDetail, Defect, Game, Identity } from '../types';
 import GameCard from './GameCard';
 import { IconButton, SectionTitle } from './ui';
+
+/** «https://www.sportclub.ru/about/» → «sportclub.ru/about» */
+function websiteLabel(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+}
 
 interface CourtDetailsSheetProps {
   court: Court;
@@ -268,6 +275,27 @@ export default function CourtDetailsSheet({
 
         {info.description && (
           <p className="mt-3 px-1 text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">{info.description}</p>
+        )}
+
+        {info.website && (
+          <a
+            href={info.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
+              openExternalLink(info.website!);
+            }}
+            className="mt-3 flex items-center gap-3 rounded-2xl bg-white px-3 py-2.5 transition hover:bg-slate-50 active:scale-[0.98] dark:bg-[#1C1E24] dark:hover:bg-white/5"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-400/10 dark:text-sky-400">
+              <Globe className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs text-slate-500 dark:text-slate-400">Сайт организации</span>
+              <span className="block truncate text-sm font-semibold text-accent">{websiteLabel(info.website)}</span>
+            </span>
+          </a>
         )}
 
         <div className="mt-4 flex gap-2">

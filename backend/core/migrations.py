@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 UPGRADE_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE courts ADD COLUMN IF NOT EXISTS is_commercial BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE courts ADD COLUMN IF NOT EXISTS website VARCHAR(300)",
+    "ALTER TABLE games ADD COLUMN IF NOT EXISTS chat_link VARCHAR(300)",
     "ALTER TABLE games ADD COLUMN IF NOT EXISTS slot_id BIGINT REFERENCES court_slots(id) ON DELETE SET NULL",
     "ALTER TABLE games ADD COLUMN IF NOT EXISTS escrow_account_id VARCHAR(64) UNIQUE",
     "ALTER TABLE games ADD COLUMN IF NOT EXISTS total_cost NUMERIC(10, 2) NOT NULL DEFAULT 0",

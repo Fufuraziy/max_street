@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -38,11 +39,15 @@ __all__ = [
     "join_game",
     "leave_game",
     "list_games",
+    "extract_max_link",
+    "latest_game_without_chat",
+    "set_chat_link",
 ]
 
 MAX_ACTIVE_GAMES_PER_USER = 5
 MAX_GAME_HORIZON = timedelta(days=30)
 START_TIME_TOLERANCE = timedelta(minutes=5)
+MAX_LINK_RE = re.compile(r"https?://(?:www\.|web\.)?max\.ru/[^\s<>\"']+", re.IGNORECASE)
 
 
 @dataclass(slots=True)
@@ -309,6 +314,47 @@ async def leave_game(session: AsyncSession, game_id: int, player: Identity) -> L
         reopened=reopened,
         new_creator=new_creator,
         refund=refund,
+    )
+
+
+def extract_max_link(text: str) -> str | None:
+    """Первая ссылка на max.ru в тексте (приглашение в групповой чат) или None."""
+    match = MAX_LINK_RE.search(text or "")
+    return match.group(0).rstrip(".,;:!?)") if match else None
+
+
+async def set_chat_link(session: AsyncSession, game_id: int, player: Identity, chat_link: str) -> Game:
+    """Организатор привязывает к сбору групповой чат MAX (ссылку-приглашение)."""
+    link = extract_max_link(chat_link)
+    if link is None or len(link) > 300:
+        raise ValidationFailedError("Нужна ссылка-приглашение в чат MAX вида https://max.ru/…")
+    game = await lock_game(session, game_id)
+    if game.creator_max_id != player.max_user_id:
+        raise ConflictError("Привязать чат может только организатор сбора")
+    if game.status not in ACTIVE_GAME_STATUSES:
+        raise ConflictError("Сбор уже завершён или отменён")
+    game.chat_link = link
+    await session.commit()
+    updated = await get_game(session, game_id)
+    try:
+        await event_bus.publish(game_id, "game_updated", GameWithCourt.model_validate(updated).model_dump(mode="json"))
+    except Exception:
+        pass
+    return updated
+
+
+async def latest_game_without_chat(session: AsyncSession, creator_max_id: str) -> Game | None:
+    """Ближайший активный сбор организатора, у которого ещё нет чата."""
+    return await session.scalar(
+        full_game_query()
+        .where(
+            Game.creator_max_id == creator_max_id,
+            Game.chat_link.is_(None),
+            Game.status.in_(ACTIVE_GAME_STATUSES),
+            Game.start_time >= active_since(),
+        )
+        .order_by(Game.start_time)
+        .limit(1)
     )
 
 

@@ -38,6 +38,7 @@ export interface Court {
   is_commercial: boolean;
   rating: number;
   description: string;
+  website?: string | null;
   active_games_today: number;
   price_from: number | null;
   distance_meters?: number;
@@ -81,6 +82,7 @@ export interface Game {
   status: GameStatus;
   status_label: string;
   comment: string;
+  chat_link?: string | null;
   created_at: string;
   participants: Participant[];
   spots_left: number;
@@ -207,6 +209,7 @@ export interface CreateCourtPayload {
   has_lighting: boolean;
   is_indoor: boolean;
   description: string;
+  website?: string | null;
 }
 
 export interface ReportDefectPayload {

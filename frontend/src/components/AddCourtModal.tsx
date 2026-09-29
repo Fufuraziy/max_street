@@ -19,6 +19,7 @@ export default function AddCourtModal({ point, onClose, onCreated }: AddCourtMod
   const [hasLighting, setHasLighting] = useState(false);
   const [isIndoor, setIsIndoor] = useState(false);
   const [description, setDescription] = useState('');
+  const [website, setWebsite] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +42,7 @@ export default function AddCourtModal({ point, onClose, onCreated }: AddCourtMod
         has_lighting: hasLighting,
         is_indoor: isIndoor,
         description: description.trim(),
+        website: website.trim() || null,
       });
       onCreated(court);
     } catch (err) {
@@ -139,6 +141,22 @@ export default function AddCourtModal({ point, onClose, onCreated }: AddCourtMod
         onChange={(event) => setDescription(event.target.value)}
         placeholder="Сколько колец или ворот, есть ли сетки, когда обычно свободно"
         className="input resize-none"
+      />
+
+      <label className="field-label mt-4" htmlFor="court-website">
+        Сайт организации <span className="font-normal text-slate-400">(необязательно)</span>
+      </label>
+      <input
+        id="court-website"
+        type="text"
+        inputMode="url"
+        autoCapitalize="none"
+        autoCorrect="off"
+        className="input"
+        maxLength={300}
+        value={website}
+        onChange={(event) => setWebsite(event.target.value)}
+        placeholder="Например: sportclub.ru"
       />
     </Modal>
   );

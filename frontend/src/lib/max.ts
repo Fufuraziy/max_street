@@ -27,6 +27,7 @@ interface MaxWebApp {
   version?: string;
   ready?: () => unknown;
   openLink?: (url: string) => unknown;
+  openMaxLink?: (url: string) => unknown;
   shareMaxContent?: (params: { text?: string; link?: string }) => unknown;
   BackButton?: {
     show: () => unknown;
@@ -277,6 +278,16 @@ export function openExternalLink(url: string): void {
     return;
   }
   window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+/** Ссылка на max.ru (чат, канал, бот) открывается внутри MAX, остальные — во внешнем браузере. */
+export function openMaxLink(url: string): void {
+  const app = webApp();
+  if (isInsideMax() && app?.openMaxLink) {
+    safe(() => app.openMaxLink?.(url));
+    return;
+  }
+  openExternalLink(url);
 }
 
 export async function shareLink(text: string, link: string): Promise<'shared' | 'copied' | 'failed'> {

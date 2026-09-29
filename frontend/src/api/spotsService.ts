@@ -188,6 +188,7 @@ class SpotsService {
         is_commercial: false,
         rating: 5.0,
         description: payload.description || 'Новая площадка',
+        website: payload.website ?? null,
         active_games_today: 0,
         price_from: null,
       };

@@ -57,6 +57,8 @@ class Game(Base):
     current_players: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(16), default=GameStatus.RECRUITING.value, index=True)
     comment: Mapped[str] = mapped_column(Text, default="")
+    # Ссылка-приглашение в групповой чат сбора в MAX (создаёт организатор, бот рассылает участникам)
+    chat_link: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     # --- Аренда и эскроу (только для коммерческих кортов) ---

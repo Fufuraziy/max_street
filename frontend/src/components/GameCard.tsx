@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CircleCheck, Clock, Crown, LogOut, MapPin, ShieldCheck, UserPlus, Zap } from 'lucide-react';
+import { CircleCheck, Clock, Crown, LogOut, MapPin, MessageCircle, ShieldCheck, UserPlus, Zap } from 'lucide-react';
 import { spotsService } from '../api/spotsService';
 import { weatherService, type WeatherInfo } from '../api/weatherService';
 import { GAME_STATUS_STYLES, PAYMENT_STATUS_STYLES, SPORTS } from '../lib/constants';
@@ -17,6 +17,7 @@ import {
   plural,
 } from '../lib/format';
 import type { Game, GameCourt, Identity, Participant } from '../types';
+import { openMaxLink } from '../lib/max';
 import { Spinner } from './ui';
 
 interface GameCardProps {
@@ -312,6 +313,17 @@ export default function GameCard({
         <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">
           💬 {game.comment}
         </p>
+      )}
+
+      {isMember && game.chat_link && (
+        <button
+          type="button"
+          onClick={() => openMaxLink(game.chat_link!)}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-100 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-300"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Перейти в чат сбора
+        </button>
       )}
 
       <div className="mt-3">

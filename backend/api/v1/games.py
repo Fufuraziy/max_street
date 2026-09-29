@@ -10,6 +10,7 @@ from core.config import settings
 from core.money import format_rub
 from models.enums import ACTIVE_GAME_STATUSES, PAYMENT_STATUS_LABELS, SportType
 from schemas.game import (
+    ChatLinkRequest,
     CheckInRequest,
     CheckInResponse,
     EscrowRead,
@@ -130,6 +131,25 @@ async def leave_game(
     if result.refund:
         message += f". Взнос {format_rub(result.refund.amount)} возвращён"
     return LeaveResponse(game=GameWithCourt.model_validate(result.game), message=message)
+
+
+@router.put("/{game_id}/chat", response_model=GameWithCourt, summary="Привязать групповой чат MAX к сбору")
+async def set_game_chat(
+    game_id: int,
+    payload: ChatLinkRequest,
+    session: SessionDep,
+    verified: InitIdentityDep,
+    background_tasks: BackgroundTasks,
+) -> GameWithCourt:
+    """Только организатор. Бот рассылает ссылку на чат всем участникам сбора.
+
+    MAX Bot API не позволяет боту создавать чаты, поэтому группу создаёт организатор,
+    а сюда передаёт ссылку-приглашение.
+    """
+    player = resolve_identity(verified, payload.user_max_id, payload.user_name or "Организатор")
+    game = await game_service.set_chat_link(session, game_id, player, payload.chat_link)
+    background_tasks.add_task(bot_service.notify_chat_linked, game_id, player.max_user_id)
+    return GameWithCourt.model_validate(game)
 
 
 @router.post("/{game_id}/checkin", response_model=CheckInResponse, summary="Геолокационный чек-ин на корте")
