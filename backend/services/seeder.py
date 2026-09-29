@@ -437,17 +437,12 @@ async def _court_ids_by_title(session: AsyncSession) -> dict[str, int]:
 
 
 async def seed_courts(session: AsyncSession, spots: list[dict[str, Any]] = SPOTS_DATA) -> int:
-    """Синхронизирует споты из SPOTS_DATA в БД (удаляет старые споты из прошлых версий)."""
-    target_titles = [item["title"] for item in spots]
-    existing_courts = {c.title: c for c in (await session.scalars(select(Court))).all()}
+    """Добавляет и обновляет споты из SPOTS_DATA в БД.
 
-    # Удаляем устаревшие корты не из актуального списка SPOTS_DATA
-    for title, old_court in list(existing_courts.items()):
-        if title not in target_titles:
-            await session.delete(old_court)
-            del existing_courts[title]
-    if len(existing_courts) != len(target_titles):
-        await session.flush()
+    Остальные площадки не удаляем: это площадки, добавленные пользователями через POST /courts,
+    и вместе с ними каскадно удалились бы их сборы, участники, эскроу-платежи и заявки о поломках.
+    """
+    existing_courts = {c.title: c for c in (await session.scalars(select(Court))).all()}
 
     created_count = 0
     for item in spots:
