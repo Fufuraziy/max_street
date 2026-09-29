@@ -30,6 +30,15 @@ import type {
   SportType,
 } from '../types';
 
+/**
+ * Уходить в автономный режим можно только при отсутствии связи (сеть, CORS, таймаут, 5xx).
+ * Ответ сервера 4xx («мест нет», «ваша доля: …») — это отказ, а не офлайн: его нужно показать
+ * пользователю, иначе действие будет «выполнено» на моковых данных и молча потеряется.
+ */
+function isOfflineError(err: unknown): boolean {
+  return !(err instanceof ApiError) || err.isNetworkOrTimeout;
+}
+
 type FallbackListener = (isFallback: boolean, message: string) => void;
 
 class SpotsService {
@@ -111,6 +120,7 @@ class SpotsService {
     try {
       return await rawRequest<PayResponse>(`/games/${gameId}/pay`, { method: 'POST', body: payload });
     } catch (err) {
+      if (!isOfflineError(err)) throw err;
       this.triggerFallback((err as Error)?.message || 'Ошибка сети');
       // Отрабатываем локальный Safe Split на моковых данных
       const updatedGame = updateFallbackGameToBooked(gameId, {
@@ -153,6 +163,7 @@ class SpotsService {
     try {
       return await rawRequest<CheckInResponse>(`/games/${gameId}/checkin`, { method: 'POST', body: payload });
     } catch (err) {
+      if (!isOfflineError(err)) throw err;
       this.triggerFallback((err as Error)?.message || 'Ошибка сети');
       throw err;
     }
@@ -162,6 +173,7 @@ class SpotsService {
     try {
       return await rawRequest<Court>('/courts', { method: 'POST', body: payload });
     } catch (err) {
+      if (!isOfflineError(err)) throw err;
       this.triggerFallback((err as Error)?.message || 'Ошибка сети');
       const newCourt: Court = {
         id: Date.now(),
@@ -222,6 +234,7 @@ class SpotsService {
     try {
       return await rawRequest<GameWithCourt>('/games', { method: 'POST', body: payload });
     } catch (err) {
+      if (!isOfflineError(err)) throw err;
       this.triggerFallback((err as Error)?.message || 'Ошибка сети');
       const court = FALLBACK_COURTS.find((c) => c.id === payload.court_id);
       const detail = getFallbackDetail(payload.court_id);
@@ -279,6 +292,7 @@ class SpotsService {
     try {
       return await rawRequest<JoinResponse>(`/games/${id}/join`, { method: 'POST', body: player });
     } catch (err) {
+      if (!isOfflineError(err)) throw err;
       this.triggerFallback((err as Error)?.message || 'Ошибка сети');
       const res = joinFallbackGame(id, player);
       if (res) {
@@ -308,6 +322,7 @@ class SpotsService {
     try {
       return await rawRequest<LeaveResponse>(`/games/${id}/leave`, { method: 'POST', body: player });
     } catch (err) {
+      if (!isOfflineError(err)) throw err;
       this.triggerFallback((err as Error)?.message || 'Ошибка сети');
       const res = leaveFallbackGame(id, player);
       if (res) {
@@ -335,6 +350,7 @@ class SpotsService {
     try {
       return await rawRequest<Defect>(`/courts/${courtId}/defects`, { method: 'POST', body: payload });
     } catch (err) {
+      if (!isOfflineError(err)) throw err;
       this.triggerFallback((err as Error)?.message || 'Ошибка сети');
       return reportFallbackDefect(courtId, payload);
     }

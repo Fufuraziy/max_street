@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { CalendarDays, Clock, LocateFixed, MapPinPlus, RefreshCw } from 'lucide-react';
-import { api, errorMessage, spotsService } from './api/client';
+import { api, ApiError, errorMessage, spotsService } from './api/client';
 import { weatherService, type WeatherInfo } from './api/weatherService';
 import AddCourtModal from './components/AddCourtModal';
 import AddReviewModal from './components/AddReviewModal';
@@ -425,11 +425,11 @@ export default function App() {
             });
             targetGame = joinResult.game;
           }
-          const due = targetGame.total_cost - targetGame.collected_amount;
-          const payResult = await api.payShare(game.id, {
+          // Сумму доли не передаём: сервер сам считает, сколько должен внести этот участник
+          // (обычно total_cost / required_players, последний платит остаток до копейки).
+          const payResult = await api.payShare(targetGame.id, {
             user_max_id: me.maxUserId,
             user_name: me.name || 'Гость (Жюри)',
-            amount: due,
             payment_method: 'sbp_mock',
           });
           if (payResult.booked) {
@@ -437,7 +437,12 @@ export default function App() {
           } else {
             notify(payResult.message, 'success');
           }
-        } catch {
+        } catch (err) {
+          if (err instanceof ApiError && !err.isNetworkOrTimeout) {
+            // Сервер доступен и отказал («Вы уже внесли свою долю», «Мест нет» и т. п.) — показываем причину.
+            notify(errorMessage(err), 'error');
+            return;
+          }
           // Автономный / статический режим (например, Cloudflare Pages без бэкенда)
           const updated = updateFallbackGameToBooked(game.id, {
             user_max_id: me.maxUserId,
